@@ -19,6 +19,11 @@ class QuotaAlert {
 class QuotaAlertEngine {
   QuotaAlertEngine(this.state);
 
+  /// Reset times this close together belong to the same period. Providers that only report
+  /// the seconds left until a reset (Factory, OpenCode Go, Notion, ...) give a reset time that
+  /// moves by a fraction of a second on every fetch; that is not a new period.
+  static const resetTolerance = Duration(minutes: 2);
+
   final Map<String, Object?> state;
 
   List<QuotaAlert> evaluate(
@@ -43,8 +48,7 @@ class QuotaAlertEngine {
       final newPeriod =
           prevReset != null &&
           reset != null &&
-          reset != prevReset &&
-          DateTime.parse(reset).isAfter(DateTime.parse(prevReset));
+          DateTime.parse(reset).difference(DateTime.parse(prevReset)) > resetTolerance;
       if (newPeriod) {
         if (notifyOnReset &&
             prevRemaining != null &&

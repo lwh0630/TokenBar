@@ -131,6 +131,39 @@ void main() {
       expect(run(97), isEmpty);
     });
 
+    test('a reset time that drifts by seconds does not re-arm thresholds', () {
+      // Providers that report "seconds until reset" yield fetch time + seconds, so the
+      // reset time moves slightly on every refresh while the period stays the same.
+      final engine = QuotaAlertEngine({});
+      final reset = now.add(const Duration(hours: 2));
+      List<QuotaAlert> run(Duration drift, {double used = 85}) => engine.evaluate(
+        UsageSnapshot(
+          accountId: 'a1',
+          providerId: 'factory',
+          fetchedAt: now,
+          windows: [
+            RateWindow(
+              id: 'session',
+              label: '5 小时',
+              usedPercent: used,
+              resetsAt: reset.add(drift),
+              windowMinutes: 300,
+            ),
+          ],
+        ),
+        thresholds: const [20],
+        notifyOnReset: true,
+        providerName: 'Factory',
+        l10n: l,
+      );
+      expect(run(Duration.zero), hasLength(1));
+      expect(run(const Duration(milliseconds: 420)), isEmpty);
+      expect(run(const Duration(seconds: 1, milliseconds: 80)), isEmpty);
+      expect(run(const Duration(seconds: 1, milliseconds: 950)), isEmpty);
+      // A real new period moves the reset by hours and re-arms the threshold.
+      expect(run(const Duration(hours: 5)), hasLength(1));
+    });
+
     test('reset notification after a new period starts', () {
       final state = <String, Object?>{};
       final engine = QuotaAlertEngine(state);
