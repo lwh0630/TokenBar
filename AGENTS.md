@@ -190,6 +190,7 @@ Upgrading the Flutter version: change `FLUTTER_VERSION` and `FLUTTER_COMMIT` (th
 
 ## Pitfalls
 
+- Linux CI and release builds use Ubuntu 24.04 to match the ARM64 baseline: `tray_manager` 0.5.x fails its `-Werror` build on Ubuntu 26.04 because `app_indicator_new` is deprecated there.
 - The web build must not import `dart:io` / sqlite: always go through the conditional import in `platform/platform.dart` for local access.
 - Android also has `dart:io`; to decide "can local logins be read" use `canUseLocalLogins` (= desktop platforms), not `localAccessSupported`.
 - `sqlite3` 3.x uses build hooks: build the CLI with `dart build cli`; open Cursor's `state.vscdb` read-only (it can be read even while Cursor is running).
