@@ -9,6 +9,7 @@ import 'package:token_bar/state/settings.dart';
 import 'package:token_bar/ui/format.dart';
 import 'package:token_bar/ui/pages/accounts_page.dart';
 import 'package:token_bar/ui/widgets/account_card.dart';
+import 'package:token_bar/ui/widgets/window_row.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
 const _zh = Locale('zh', 'CN');
@@ -223,15 +224,17 @@ void main() {
     expect(back.serverConfigured, isTrue);
   });
 
-  Future<void> openEditor(WidgetTester tester) async {
+  Future<void> openEditor(WidgetTester tester, {AccountConfig? existing}) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       _app(
         home: Builder(
-          builder: (context) =>
-              TextButton(onPressed: () => showAccountEditor(context), child: const Text('open')),
+          builder: (context) => TextButton(
+            onPressed: () => showAccountEditor(context, existing: existing),
+            child: const Text('open'),
+          ),
         ),
       ),
     );
@@ -268,6 +271,126 @@ void main() {
     expect(find.text('cursor.com Cookie'), findsOneWidget);
     expect(availableProviders.map((p) => p.id), isNot(contains('codex')));
     expect(availableProviders.map((p) => p.id), isNot(contains('claude')));
+  });
+
+  testWidgets('selecting Copilot offers a concealed GitHub token and optional host', (
+    tester,
+  ) async {
+    await openEditor(tester);
+    await tester.tap(find.byKey(const ValueKey('provider-picker')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'copilot');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GitHub Copilot').last);
+    await tester.pumpAndSettle();
+
+    final tokenField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.decoration?.labelText == 'GitHub Token',
+      ),
+    );
+    expect(tokenField.obscureText, isTrue);
+    expect(find.text(l.optionalField('GitHub Enterprise 主机')), findsOneWidget);
+    expect(find.textContaining(l.storedInKeychain), findsOneWidget);
+    expect(availableProviders.map((p) => p.id), contains('copilot'));
+  });
+
+  testWidgets('Copilot credits without an allowance remain a plain used counter', (tester) async {
+    // Artificial display data, independent of any account response.
+    await tester.pumpWidget(
+      _app(
+        home: Scaffold(
+          body: AccountCard(
+            snapshot: UsageSnapshot(
+              accountId: 'copilot-test',
+              providerId: 'copilot',
+              fetchedAt: now,
+              plan: 'Business',
+              source: 'api-key',
+              credits: const [Credits(id: 'copilot-seat-credits', label: 'Credits 已用', used: 360)],
+            ),
+            now: now,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('GitHub Copilot'), findsOneWidget);
+    expect(find.text('Business'), findsOneWidget);
+    expect(find.text('Credits 已用'), findsOneWidget);
+    expect(find.textContaining('360'), findsOneWidget);
+    expect(find.textContaining('%'), findsNothing);
+    expect(find.byType(WindowRow), findsNothing);
+  });
+
+  testWidgets('selecting MiMo offers the platform Cookie field', (tester) async {
+    await openEditor(tester);
+    await tester.tap(find.byKey(const ValueKey('provider-picker')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'mimo');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xiaomi MiMo').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('platform.xiaomimimo.com Cookie'), findsOneWidget);
+    expect(find.textContaining('api-platform_serviceToken'), findsWidgets);
+    expect(find.textContaining(l.storedInKeychain), findsOneWidget);
+    expect(availableProviders.map((p) => p.id), contains('mimo'));
+  });
+
+  testWidgets('editing MiMo never fills the saved Cookie into the text field', (tester) async {
+    const cookie = 'api-platform_serviceToken=synthetic-session; userId=42';
+    await openEditor(
+      tester,
+      existing: const AccountConfig(
+        id: 'mimo-test',
+        providerId: 'mimo',
+        label: 'MiMo test',
+        sourceType: SourceType.apiKey,
+        secret: cookie,
+      ),
+    );
+
+    final field = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'platform.xiaomimimo.com Cookie',
+      ),
+    );
+    expect(field.controller!.text, isEmpty);
+    expect(field.decoration!.hintText, l.savedKeepUnchanged);
+    expect(find.textContaining('synthetic-session'), findsNothing);
+  });
+
+  testWidgets('expired MiMo session labels its cached balance as old data', (tester) async {
+    const error = 'Xiaomi MiMo 登录已过期';
+    const hint = '在 platform.xiaomimimo.com 重新登录后复制 Cookie';
+    await tester.pumpWidget(
+      _app(
+        home: Scaffold(
+          body: AccountCard(
+            snapshot: UsageSnapshot(
+              accountId: 'mimo-test',
+              providerId: 'mimo',
+              fetchedAt: now.subtract(const Duration(minutes: 3)),
+              source: 'web',
+              credits: const [
+                Credits(id: 'mimo-balance', label: '余额', balance: 12.5, currency: 'CNY'),
+              ],
+              error: error,
+              errorHint: hint,
+            ),
+            now: now,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Xiaomi MiMo'), findsOneWidget);
+    expect(find.textContaining('12.50'), findsOneWidget);
+    expect(find.text(l.staleDataNotice(error)), findsOneWidget);
+    expect(find.text(hint), findsOneWidget);
+    expect(find.byType(WindowRow), findsNothing);
   });
 
   test('cursor labels', () {

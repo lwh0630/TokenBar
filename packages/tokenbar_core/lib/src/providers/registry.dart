@@ -1,12 +1,14 @@
 import 'api/account_api_providers.dart';
 import 'api/atlascloud_provider.dart';
 import 'api/coding_plan_providers.dart';
+import 'api/cookie_b_providers.dart';
 import 'api/deepinfra_provider.dart';
 import 'api/deepseek_provider.dart';
 import 'api/elevenlabs_provider.dart';
 import 'api/fireworks_provider.dart';
 import 'api/gateway_providers.dart';
 import 'api/huggingface_provider.dart';
+import 'api/local_auth_a_providers.dart';
 import 'api/moonshot_provider.dart';
 import 'api/more_api_providers.dart';
 import 'api/quota_api_providers.dart';
@@ -74,6 +76,8 @@ class ProviderRegistry {
     XKiroProvider(),
     AiAndProvider(),
     GroqProvider(),
+    MiMoProvider(),
+    CopilotProvider(),
   ]);
 
   final List<UsageProvider> all;

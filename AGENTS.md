@@ -37,7 +37,7 @@ packages/tokenbar_core/         Pure Dart: models, per-service fetching, sync cl
   test/                         Unit tests + fixtures/ (real response samples; log-style fixtures must be synthetic)
 packages/tokenbar_server/       CLI (usage / collect / serve) and the optional sync server (shelf + sqlite)
 test/                           App tests (widget, controller, charts, i18n, tray panel, demo data)
-assets/provider_icons/          49 service logos (SVG, from CodexBar, see the README in that directory; attribution in NOTICE.md)
+assets/provider_icons/          51 service logos (SVG, from CodexBar and Win-CodexBar; attribution in NOTICE.md)
 assets/icon/                    Source image of the app icon
 tool/gen_icons.py               Generates the app icons for every platform (never edit icon files by hand)
 tool/build_windows_installer.ps1 Windows installer build + smoke test (shared by CI and release)
@@ -154,6 +154,9 @@ Upgrading the Flutter version: change `FLUTTER_VERSION` and `FLUTTER_COMMIT` (th
    (use the `_run(providerId, {URL substring: response body or status code})` helper in `api_providers_test.dart`).
 5. Update the service table and the service count (badge, numbers in the text) in `README.md` and `README.zh-CN.md`.
 6. Service logo: if CodexBar has a matching `ProviderIcon-<name>.svg`, copy it to `assets/provider_icons/<id>.svg` as described in `assets/provider_icons/README.md`, and add the id to `providerIconIds` in `provider_badge.dart` (add colored logos to `providerColoredIconIds` as well); `test/provider_icons_test.dart` checks that the assets and the sets agree. Services without a logo fall back to an initial-letter square.
+
+- MiMo uses a manually supplied Cookie header; there is no browser cookie extraction. Preserve balance when optional plan endpoints fail, suppress expired or incomplete plan windows, and disable redirects to sign-in pages.
+- Copilot uses a manually supplied GitHub OAuth token or `COPILOT_API_TOKEN`, not a short-lived Copilot service token. Keep premium, completion and chat quotas separate, ignore `has_quota: false` placeholders, and never infer a remaining allowance from `credits_used` alone or sum shared counters. Provider tests must use synthetic account data.
 
 ## Internationalization (i18n)
 

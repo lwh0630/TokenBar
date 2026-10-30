@@ -15,15 +15,15 @@ English | [简体中文](README.zh-CN.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Android%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS-2ea44f)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![Providers](https://img.shields.io/badge/providers-50-8A63D2)
+![Providers](https://img.shields.io/badge/providers-52-8A63D2)
 
 </div>
 
-> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 50 services.
+> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 52 services.
 
 ## Why TokenBar
 
-- **See everything in one place.** Codex, Claude, Cursor, OpenRouter, DeepSeek, z.ai and 44 more: remaining quota, balance, reset countdown and whether you are burning through it faster than a linear pace.
+- **See everything in one place.** Codex, Claude, Cursor, OpenRouter, DeepSeek, z.ai and 46 more: remaining quota, balance, reset countdown and whether you are burning through it faster than a linear pace.
 - **Nothing sits in the middle.** The app queries each provider's own endpoint from your device. The optional sync server only ever receives usage *snapshots*, never credentials.
 - **Reuses what you already have.** On desktop it reads the login your official CLI or app already stored (read-only). Elsewhere you paste an API key or cookie. TokenBar never asks for a password and never logs in on your behalf.
 - **Native desktop feel.** A tray icon whose two bars follow your tightest quota, and a compact tray panel that lists every account.
@@ -146,7 +146,7 @@ Three ways to read a service:
 </details>
 
 <details>
-<summary><b>Other account APIs (10)</b></summary>
+<summary><b>Other account APIs (12)</b></summary>
 
 | Service | What you see |
 | --- | --- |
@@ -160,6 +160,14 @@ Three ways to read a service:
 | Sofya | Available / plan / purchased credits |
 | Chatbox AI | Plan / bonus / top-up / image quota (license key) |
 | IBM Bob | Bobcoin budget per team |
+| GitHub Copilot | Metered quota and credits usage reported by GitHub (GitHub token) |
+| Xiaomi MiMo | Account balance and Token Plan usage (pasted platform cookie) |
+
+For **GitHub Copilot**, paste a GitHub token authorized for the account's Copilot usage in **Accounts → Add account → GitHub Copilot**. The [CodexBar integration](https://github.com/steipete/CodexBar/blob/5f93dc3068b3bee3f8753f3772614cc2949c335d/Sources/CodexBarCore/Providers/Copilot/CopilotUsageFetcher.swift) uses the GitHub OAuth token itself (`gho_...`), rather than a short-lived Copilot service token. Desktop users can also supply `COPILOT_API_TOKEN`; an optional Enterprise host selects that account's API host. TokenBar does not provide a device-login flow or automatically discover other clients' saved Copilot logins.
+
+Copilot usage comes from the non-public `/copilot_internal/user` endpoint and depends on the token's access. When GitHub returns metered quota values, they are shown directly; if it returns only `credits_used`, TokenBar shows credits used without inventing a remaining amount or percentage. Unlimited or placeholder quotas do not become 100% remaining bars. GitHub web billing budgets and a user-entered seat allowance are not included in this integration.
+
+For **Xiaomi MiMo**, sign in to `platform.xiaomimimo.com` and copy a request's `Cookie` header from your browser's developer tools. It must include `api-platform_serviceToken` and `userId`. Paste it in **Accounts → Add account → Xiaomi MiMo**. The app reads the platform's non-public balance and Token Plan endpoints using this session cookie; inference API keys and automatic browser-cookie import are not supported for MiMo. Replace the cookie when the platform session expires. Plan usage is shown only when returned by the platform; a balance-only account does not gain a synthetic quota window.
 
 </details>
 
