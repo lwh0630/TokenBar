@@ -14,9 +14,14 @@ Copied unmodified from the CodexBar repository:
   OpenAI API provider).
 - `claude.svg` <- `Sources/CodexBar/Resources/Brand-ProviderIcon-claude.svg`
   (the coloured brand version; drawn on a white tile).
+- `copilot.svg` <- [`Sources/CodexBar/Resources/ProviderIcon-copilot.svg`](https://github.com/steipete/CodexBar/blob/5f93dc3068b3bee3f8753f3772614cc2949c335d/Sources/CodexBar/Resources/ProviderIcon-copilot.svg).
 
 Upstream: <https://github.com/steipete/CodexBar>, MIT License, Copyright (c) 2026
 Peter Steinberger. The full MIT text is in the repository's `NOTICE.md`.
+
+`mimo.svg` is copied unmodified from
+[`nesszer/Win-CodexBar`](https://github.com/nesszer/Win-CodexBar/blob/v0.70.0/rust/assets/icons/ProviderIcon-mimo.svg),
+MIT License, Copyright (c) 2025 Peter Steinberger; see `NOTICE.md`.
 
 Files in this folder that have a coloured logo (`claude`, `aixy`, `futureagi`,
 `sub2api`) keep their original colours; all other logos are single-colour and

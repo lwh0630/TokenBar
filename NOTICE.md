@@ -41,6 +41,11 @@ its owner and is used only to identify that service. See
 [assets/provider_icons/README.md](assets/provider_icons/README.md) for the
 file mapping.
 
+The MiMo SVG is copied from
+[nesszer/Win-CodexBar](https://github.com/nesszer/Win-CodexBar),
+`rust/assets/icons/ProviderIcon-mimo.svg` at `v0.70.0`, under the same MIT
+License terms above, with Copyright (c) 2025 Peter Steinberger.
+
 ## Dependencies
 
 Flutter, Dart and the packages listed in `pubspec.yaml` are used under their

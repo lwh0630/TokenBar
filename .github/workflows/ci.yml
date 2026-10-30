@@ -186,7 +186,8 @@ jobs:
       matrix:
         include:
           - arch: x64
-            runner: ubuntu-latest
+            # tray_manager 0.5.x treats new Ayatana deprecations as errors on 26.04.
+            runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
 

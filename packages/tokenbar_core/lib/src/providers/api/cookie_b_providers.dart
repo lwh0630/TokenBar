@@ -305,13 +305,15 @@ class MiMoProvider extends _CookieProvider {
     final cash = balance.cash;
     final gift = balance.gift;
     final planCode = plan.planCode;
+    final planExpired =
+        plan.expired || (plan.periodEnd != null && !plan.periodEnd!.isAfter(ctx.now()));
     return snapshot(
       account,
       ctx,
       plan: planCode == null ? null : _capitalized(planCode),
       source: 'web',
       windows: [
-        if (tokens.limit > 0)
+        if (tokens.limit > 0 && !planExpired)
           quotaWindow(
             'mimo-plan',
             '套餐额度',
@@ -330,7 +332,7 @@ class MiMoProvider extends _CookieProvider {
         if (cash != null && gift != null)
           '余额明细':
               'Paid: ${moneyText(cash, balance.currency)} / Granted: ${moneyText(gift, balance.currency)}',
-        if (plan.expired) '套餐状态': '已过期',
+        if (planExpired) '套餐状态': '已过期',
       },
     );
   }
@@ -340,7 +342,13 @@ class MiMoProvider extends _CookieProvider {
     String url,
     Map<String, String> headers,
   ) async {
-    final r = await sendRequest(ctx, displayName, Uri.parse(url), headers: headers);
+    final r = await _sendNoRedirect(
+      ctx,
+      displayName,
+      Uri.parse(url),
+      headers: headers,
+      timeout: const Duration(seconds: 20),
+    );
     if (r.statusCode == 401 || (r.statusCode >= 300 && r.statusCode < 400)) {
       throw ProviderException(
         'Xiaomi MiMo 登录已过期',
@@ -421,11 +429,11 @@ ProviderException _mimoCodeError(int? code, String? message) => switch (code) {
   final items = asList(asMap(asMap(json['data'])?['monthUsage'])?['items']);
   final item = asMap(items?.firstOrNull);
   if (item == null) return none;
-  return (
-    used: asInt(item['used']) ?? 0,
-    limit: asInt(item['limit']) ?? 0,
-    percent: asDouble(item['percent']) ?? 0,
-  );
+  final used = asInt(item['used']);
+  final limit = asInt(item['limit']);
+  final percent = asDouble(item['percent']);
+  if (used == null || limit == null || percent == null || !percent.isFinite) return none;
+  return (used: used, limit: limit, percent: percent);
 }
 
 // ------------------------------------------------------------------- Sakana
