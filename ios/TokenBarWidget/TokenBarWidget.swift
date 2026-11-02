@@ -89,7 +89,14 @@ struct TokenBarWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        .containerBackground(for: .widget) { Color(red: 0.12, green: 0.16, blue: 0.22) }
+        // Same deep-indigo "liquid glass" gradient as the Android widget and the dark theme.
+        .containerBackground(for: .widget) {
+            LinearGradient(
+                colors: [Color(red: 0.08, green: 0.10, blue: 0.18), Color(red: 0.14, green: 0.12, blue: 0.27)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
         .environment(\.colorScheme, .dark)
     }
 }
