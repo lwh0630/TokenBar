@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'design/tokens.dart';
 
@@ -173,6 +174,14 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         toolbarHeight: 60,
+        // A transparent bar would otherwise be judged "dark" and get light status
+        // icons on the light theme.
+        systemOverlayStyle: (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+            ),
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: text.titleLarge,
