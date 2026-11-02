@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:token_bar/app/app_shell.dart';
+import 'package:token_bar/app/design/ambient_background.dart';
 import 'package:token_bar/app/design/reveal.dart';
 import 'package:token_bar/app/theme.dart';
 import 'package:token_bar/demo/demo_data.dart';
@@ -122,5 +123,42 @@ void main() {
     );
     final opacity = tester.widget<Opacity>(find.byType(Opacity));
     expect(opacity.opacity, 1);
+  });
+
+  testWidgets('ambient background does not keep the frame loop alive when frozen', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const AmbientBackground(animate: false, child: Text('x')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('x'), findsOneWidget);
+  });
+
+  testWidgets('ambient background honors reduced motion', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const AmbientBackground(child: Text('y')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('y'), findsOneWidget);
+  });
+
+  testWidgets('ambient background animates by default and disposes cleanly', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const AmbientBackground(child: Text('z')),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

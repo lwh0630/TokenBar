@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'tokens.dart';
 
@@ -19,47 +21,81 @@ class AmbientBackground extends StatefulWidget {
   State<AmbientBackground> createState() => _AmbientBackgroundState();
 }
 
-class _AmbientBackgroundState extends State<AmbientBackground> with SingleTickerProviderStateMixin {
-  late final AnimationController _drift = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 90),
-  );
+class _AmbientBackgroundState extends State<AmbientBackground>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  /// One drift cycle. The motion is so slow that repainting ~10 times a second
+  /// looks identical to 60 fps but keeps the blur layers above cheap.
+  static const _cycle = Duration(seconds: 90);
+  static const _step = Duration(milliseconds: 100);
 
-  bool _running = false;
+  final ValueNotifier<double> _phase = ValueNotifier(0);
+  late final Ticker _ticker = createTicker(_onTick);
+  Duration _lastPaint = Duration.zero;
+  bool _reduceMotion = false;
+  bool _visible = true;
 
-  void _sync(bool reduceMotion) {
-    final shouldRun = widget.animate && !reduceMotion;
-    if (shouldRun == _running) return;
-    _running = shouldRun;
-    shouldRun ? _drift.repeat() : _drift.stop();
+  void _onTick(Duration elapsed) {
+    if (elapsed - _lastPaint < _step) return;
+    _lastPaint = elapsed;
+    _phase.value = (elapsed.inMilliseconds % _cycle.inMilliseconds) / _cycle.inMilliseconds;
+  }
+
+  void _sync() {
+    final shouldRun = widget.animate && !_reduceMotion && _visible;
+    if (shouldRun == _ticker.isActive) return;
+    if (shouldRun) {
+      _lastPaint = Duration.zero;
+      _ticker.start();
+    } else {
+      _ticker.stop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _sync(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+    _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _sync();
   }
 
   @override
   void didUpdateWidget(AmbientBackground old) {
     super.didUpdateWidget(old);
-    _sync(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+    _sync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _visible = state != AppLifecycleState.hidden && state != AppLifecycleState.paused;
+    _sync();
   }
 
   @override
   void dispose() {
-    _drift.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker.dispose();
+    _phase.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.glass;
-    return RepaintBoundary(
-      child: CustomPaint(
-        painter: _AmbientPainter(colors, _drift),
-        child: widget.child ?? const SizedBox.expand(),
-      ),
+    // The blobs live in their own layer so a drift step never repaints the app.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: CustomPaint(painter: _AmbientPainter(colors, _phase), size: Size.infinite),
+        ),
+        widget.child ?? const SizedBox.shrink(),
+      ],
     );
   }
 }
@@ -68,7 +104,7 @@ class _AmbientPainter extends CustomPainter {
   _AmbientPainter(this.colors, this.t) : super(repaint: t);
 
   final GlassColors colors;
-  final Animation<double> t;
+  final ValueListenable<double> t;
 
   @override
   void paint(Canvas canvas, Size size) {
