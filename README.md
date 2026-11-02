@@ -27,7 +27,7 @@ English | [简体中文](README.zh-CN.md)
 - **Nothing sits in the middle.** The app queries each provider's own endpoint from your device. The optional sync server only ever receives usage *snapshots*, never credentials.
 - **Reuses what you already have.** On desktop it reads the login your official CLI or app already stored (read-only). Elsewhere you paste an API key or cookie. TokenBar never asks for a password and never logs in on your behalf.
 - **Native desktop feel.** A tray icon whose two bars follow your tightest quota, and a compact tray panel that lists every account.
-- **Liquid-glass look.** A frameless window with a unified title bar, frosted-glass sidebar and cards over a softly drifting ambient background, in light and dark.
+- **Liquid-glass look.** A frameless window with a unified title bar, frosted-glass sidebar and cards over a softly drifting ambient background, in light and dark. Pick a gradient preset or your own picture as the background in Settings (picture backgrounds are not available in the web build).
 
 ## Screenshots
 
