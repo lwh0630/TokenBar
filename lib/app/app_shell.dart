@@ -61,10 +61,10 @@ class _AppShellState extends State<AppShell> {
       const AccountsPage(),
       const SettingsPage(),
     ];
-    final body = IndexedStack(index: _index, children: pages);
     final wide = MediaQuery.sizeOf(context).width >= 720;
 
     if (wide) {
+      final body = IndexedStack(index: _index, children: pages);
       // The unified title bar already shows the app icon and name.
       final showBrand = !context.read<AppController>().desktop.hasCustomChrome;
       return Scaffold(
@@ -81,10 +81,87 @@ class _AppShellState extends State<AppShell> {
         ),
       );
     }
+    // Phones: swipe left / right between the pages, or tap the bottom bar.
     return Scaffold(
-      body: body,
+      body: _SwipePages(index: _index, onChanged: _go, children: pages),
       bottomNavigationBar: _BottomBar(index: _index, onSelect: _go, destinations: destinations),
     );
+  }
+}
+
+/// A [PageView] bound to the shell's selected index: a swipe reports the new
+/// index, and a tab tap animates to it. Every page stays alive (like the
+/// [IndexedStack] used on wide screens), so scroll positions and form input
+/// survive a trip to another tab.
+class _SwipePages extends StatefulWidget {
+  const _SwipePages({required this.index, required this.onChanged, required this.children});
+
+  final int index;
+  final ValueChanged<int> onChanged;
+  final List<Widget> children;
+
+  @override
+  State<_SwipePages> createState() => _SwipePagesState();
+}
+
+class _SwipePagesState extends State<_SwipePages> {
+  late final PageController _controller = PageController(initialPage: widget.index);
+
+  /// True while a tab tap is animating across pages: the in-between pages the
+  /// animation passes must not be reported as the user's choice.
+  bool _animating = false;
+
+  @override
+  void didUpdateWidget(_SwipePages old) {
+    super.didUpdateWidget(old);
+    final shown = _controller.hasClients ? (_controller.page ?? widget.index.toDouble()) : null;
+    if (shown == null || shown.round() == widget.index) return;
+    final duration = Motion.of(context, Motion.slow);
+    if (duration == Duration.zero) {
+      _controller.jumpToPage(widget.index);
+      return;
+    }
+    _animating = true;
+    _controller
+        .animateToPage(widget.index, duration: duration, curve: Motion.curve)
+        .whenComplete(() => _animating = false);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView(
+      controller: _controller,
+      onPageChanged: (i) {
+        if (!_animating) widget.onChanged(i);
+      },
+      children: [for (final page in widget.children) _KeepAlive(child: page)],
+    );
+  }
+}
+
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
