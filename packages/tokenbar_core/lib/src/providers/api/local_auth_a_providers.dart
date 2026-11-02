@@ -62,6 +62,8 @@ class _CopilotQuota {
     required this.remainingDecoded,
     this.creditsUsed,
     this.percentRemaining,
+    this.hasQuota = true,
+    this.tokenBasedBilling = false,
     this.unlimited = false,
   });
 
@@ -71,9 +73,12 @@ class _CopilotQuota {
   final bool remainingDecoded;
   final double? creditsUsed;
   final double? percentRemaining;
+  final bool hasQuota;
+  final bool tokenBasedBilling;
   final bool unlimited;
 
   bool get isPlaceholder {
+    if (!hasQuota) return true;
     if (unlimited) return false;
     if (entitlement == 0 && remaining == 0 && percentRemaining == null) return true;
     return entitlementDecoded && remainingDecoded && entitlement == 0 && remaining == 0;
@@ -88,6 +93,8 @@ class _CopilotQuota {
     remainingDecoded: remainingDecoded,
     creditsUsed: credits,
     percentRemaining: percentRemaining,
+    hasQuota: hasQuota,
+    tokenBasedBilling: tokenBasedBilling,
     unlimited: unlimited,
   );
 }
@@ -108,40 +115,36 @@ _CopilotQuota? _decodeCopilotQuota(Object? raw) {
     remainingDecoded: remaining != null,
     creditsUsed: asDouble(m['credits_used']),
     percentRemaining: unlimited ? 100 : (asDouble(m['percent_remaining']) ?? derived),
+    hasQuota: asBool(m['has_quota']) ?? true,
+    tokenBasedBilling: asBool(m['token_based_billing']) ?? false,
     unlimited: unlimited,
   );
 }
 
-({_CopilotQuota? premium, _CopilotQuota? chat}) _directCopilotQuotas(
+({_CopilotQuota? premium, _CopilotQuota? completions, _CopilotQuota? chat}) _directCopilotQuotas(
   Map<String, Object?> snapshots,
 ) {
   _CopilotQuota? keep(_CopilotQuota? q) =>
-      q == null || (q.isPlaceholder && q.creditsUsed == null) ? null : q;
+      q == null || (q.isPlaceholder && q.creditsUsed == null && !q.tokenBasedBilling) ? null : q;
   var premium = keep(_decodeCopilotQuota(snapshots['premium_interactions']));
+  var completions = keep(_decodeCopilotQuota(snapshots['completions']));
   var chat = keep(_decodeCopilotQuota(snapshots['chat']));
-  if (premium == null || chat == null) {
-    _CopilotQuota? fallbackPremium;
-    _CopilotQuota? fallbackChat;
-    _CopilotQuota? firstUsable;
-    for (final entry in snapshots.entries) {
-      final q = keep(_decodeCopilotQuota(entry.value));
-      if (q == null) continue;
-      firstUsable ??= q;
-      final name = entry.key.toLowerCase();
-      if (fallbackChat == null && name.contains('chat')) {
-        fallbackChat = q;
-        continue;
-      }
-      if (fallbackPremium == null &&
-          (name.contains('premium') || name.contains('completion') || name.contains('code'))) {
-        fallbackPremium = q;
-      }
+  _CopilotQuota? firstUsable;
+  for (final entry in snapshots.entries) {
+    final q = keep(_decodeCopilotQuota(entry.value));
+    if (q == null) continue;
+    firstUsable ??= q;
+    final name = entry.key.toLowerCase();
+    if (name.contains('chat')) {
+      chat ??= q;
+    } else if (name.contains('premium')) {
+      premium ??= q;
+    } else if (name.contains('completion') || name.contains('code')) {
+      completions ??= q;
     }
-    premium ??= fallbackPremium;
-    chat ??= fallbackChat;
-    if (premium == null && chat == null) chat = firstUsable;
   }
-  return (premium: premium, chat: chat);
+  if (premium == null && completions == null && chat == null) chat = firstUsable;
+  return (premium: premium, completions: completions, chat: chat);
 }
 
 _CopilotQuota? _monthlyCopilotQuota(double? monthly, double? limited) {
@@ -184,31 +187,50 @@ RateWindow? _copilotWindow(String id, String label, _CopilotQuota? q, DateTime? 
   final direct = _directCopilotQuotas(asMap(json['quota_snapshots']) ?? const {});
   final monthly = asMap(json['monthly_quotas']);
   final limited = asMap(json['limited_user_quotas']);
-  final premiumPick = _preferCopilotQuota(
-    direct.premium,
+  final premium = _copilotUsable(direct.premium) ? direct.premium : null;
+  final completions = _preferCopilotQuota(
+    direct.completions,
     _monthlyCopilotQuota(asDouble(monthly?['completions']), asDouble(limited?['completions'])),
   );
-  final chatPick = _preferCopilotQuota(
+  final chat = _preferCopilotQuota(
     direct.chat,
     _monthlyCopilotQuota(asDouble(monthly?['chat']), asDouble(limited?['chat'])),
   );
-  final selected = premiumPick != null || chatPick != null;
-  final premium = selected ? premiumPick : direct.premium;
-  final chat = selected ? chatPick : direct.chat;
   final resetsAt = _utcDate(asString(json['quota_reset_date']));
-  final tokenBilling = asBool(json['token_based_billing']) ?? false;
-  final unlimited = premium?.unlimited == true || chat?.unlimited == true;
+  final directQuotas = [direct.premium, direct.completions, direct.chat];
+  final tokenBilling =
+      asBool(json['token_based_billing']) == true ||
+      directQuotas.any((quota) => quota?.tokenBasedBilling == true);
+  final unlimited = directQuotas.any((quota) => quota?.unlimited == true);
   final premiumWindow = _copilotWindow('copilot-premium', '高级请求', premium, resetsAt);
+  final completionsWindow = _copilotWindow(
+    'copilot-completions',
+    tokenBilling ? 'AI Credits' : '代码补全',
+    completions,
+    resetsAt,
+  );
   final chatWindow = _copilotWindow('copilot-chat', '聊天', chat, resetsAt);
-  if (premiumWindow == null && chatWindow == null && !tokenBilling && !unlimited) {
+  if (premiumWindow == null &&
+      completionsWindow == null &&
+      chatWindow == null &&
+      !tokenBilling &&
+      !unlimited) {
     throw ProviderException('Copilot 返回的额度数据无法解析', hint: '稍后重试，或在 GitHub 查看 Copilot 用量');
   }
-  final creditsUsed = premium?.creditsUsed ?? chat?.creditsUsed;
+  // A zero placeholder must not hide a real quota's counter. These counters
+  // may describe shared pools, so select one rather than adding them.
+  final creditsUsed =
+      premium?.creditsUsed ??
+      completions?.creditsUsed ??
+      chat?.creditsUsed ??
+      direct.premium?.creditsUsed ??
+      direct.completions?.creditsUsed ??
+      direct.chat?.creditsUsed;
   final hasSignal = tokenBilling || unlimited || (creditsUsed ?? 0) > 0;
   final plan = asString(json['copilot_plan']) ?? 'unknown';
   return (
     plan: _titleWords(plan),
-    windows: [?premiumWindow, ?chatWindow],
+    windows: [?premiumWindow, ?completionsWindow, ?chatWindow],
     credits: [
       if (creditsUsed != null && hasSignal)
         Credits(
@@ -236,15 +258,15 @@ class CopilotProvider extends UsageProvider {
 
   @override
   String get setupHint =>
-      '粘贴一个已开通 Copilot 的 GitHub 令牌（gho_ 或 ghp_ 开头）。GitHub Enterprise 用户在下方填写主机。手机也能用。';
+      '粘贴已开通 Copilot 的 GitHub OAuth 令牌（如 gho_ 开头），不是短期 Copilot 服务令牌。GitHub Enterprise 用户在下方填写主机。手机也能用。';
 
   @override
   List<ProviderField> get fields => const [
     ProviderField.apiKey(
       label: 'GitHub Token',
-      hint: 'gho_... 或 ghp_...',
+      hint: 'gho_...',
       envVars: ['COPILOT_API_TOKEN'],
-      help: '需要账号已开通 Copilot。仅在本机保存，不会发送给 TokenBar 服务器',
+      help: '使用 GitHub OAuth 令牌；普通 PAT 不保证可用。仅在本机安全保存，不会发送给 TokenBar 服务器',
     ),
     ProviderField(
       key: 'enterpriseHost',

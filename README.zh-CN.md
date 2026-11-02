@@ -15,15 +15,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Android%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS-2ea44f)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![Providers](https://img.shields.io/badge/providers-50-8A63D2)
+![Providers](https://img.shields.io/badge/providers-52-8A63D2)
 
 </div>
 
-> 灵感来自 macOS 上的 [CodexBar](https://github.com/steipete/CodexBar)。TokenBar 把同样的思路带到 Windows、Android、Linux 和 iOS（也提供 macOS 版本），并支持 50 个服务。
+> 灵感来自 macOS 上的 [CodexBar](https://github.com/steipete/CodexBar)。TokenBar 把同样的思路带到 Windows、Android、Linux 和 iOS（也提供 macOS 版本），并支持 52 个服务。
 
 ## 为什么用 TokenBar
 
-- **一处看全部。** Codex、Claude、Cursor、OpenRouter、DeepSeek、z.ai 等 50 个服务：剩余额度、余额、重置倒计时，以及你消耗得是否比匀速更快。
+- **一处看全部。** Codex、Claude、Cursor、OpenRouter、DeepSeek、z.ai 等 52 个服务：剩余额度、余额、重置倒计时，以及你消耗得是否比匀速更快。
 - **中间没有第三方。** 应用在你的设备上直接请求各服务商自己的接口。可选的同步服务器只接收额度*快照*，从不接触凭证。
 - **复用你已有的登录。** 桌面端只读取官方 CLI / 客户端已保存的登录状态，其他场景粘贴 API Key 或 Cookie。TokenBar 不索要密码，也不替你登录。
 - **桌面原生体验。** 托盘图标的双进度条跟随最紧张的额度，点击弹出托盘小面板，列出所有账户。
@@ -66,7 +66,7 @@
 | **可选同步服务器** | 自建。在电脑上推送快照，在手机或浏览器里查看。 |
 | **命令行** | `tokenbar usage` 在终端或以 JSON 输出同样的数据。 |
 
-## 支持的服务（共 50 个）
+## 支持的服务（共 52 个）
 
 读取方式：
 
@@ -144,7 +144,7 @@
 </details>
 
 <details>
-<summary><b>其他账户类 API（10 个）</b></summary>
+<summary><b>其他账户类 API（12 个）</b></summary>
 
 | 服务 | 额度 |
 | --- | --- |
@@ -158,6 +158,14 @@
 | Sofya | 可用 / 套餐 / 购买 credits |
 | Chatbox AI | 套餐 / 奖励 / 加油包 / 图片额度（License Key） |
 | IBM Bob | 各团队 Bobcoin 预算 |
+| GitHub Copilot | GitHub 返回的计量额度和 credits 用量（GitHub 令牌） |
+| Xiaomi MiMo | 账户余额、Token Plan 用量（手动粘贴平台 Cookie） |
+
+**GitHub Copilot**：在**账户 → 添加账户 → GitHub Copilot** 中粘贴有权查询该账户 Copilot 用量的 GitHub 令牌。[CodexBar 接入](https://github.com/steipete/CodexBar/blob/5f93dc3068b3bee3f8753f3772614cc2949c335d/Sources/CodexBarCore/Providers/Copilot/CopilotUsageFetcher.swift)使用 GitHub OAuth 令牌本体（`gho_...`），而非 Copilot 的短期服务令牌。桌面端也可使用 `COPILOT_API_TOKEN`；可选的 Enterprise 主机用于指定对应账户的 API 主机。TokenBar 不提供设备码登录，也不会自动查找其他客户端保存的 Copilot 登录。
+
+Copilot 用量来自非公开的 `/copilot_internal/user` 接口，能否访问取决于令牌权限。GitHub 返回计量额度时按真实值显示；若只返回 `credits_used`，则仅显示已用 credits，不推算剩余额度或百分比。无限额度或占位数据不会显示为剩余 100% 的进度条；本接入不包含 GitHub 网页账单预算和手动设置的每席 credits 上限。
+
+**Xiaomi MiMo**：登录 `platform.xiaomimimo.com`，在浏览器开发者工具中复制请求的 `Cookie` 请求头，需包含 `api-platform_serviceToken` 和 `userId`，然后粘贴到**账户 → 添加账户 → Xiaomi MiMo**。应用使用此会话 Cookie 读取平台的非公开余额与 Token Plan 接口；MiMo 接入不支持推理 API Key 或自动导入浏览器 Cookie。平台登录过期后需更新 Cookie；仅在平台返回套餐用量时显示额度窗口，只有余额的账户不会显示虚构的套餐额度。
 
 </details>
 

@@ -1,0 +1,38 @@
+{
+  "_fixture_note": "Synthetic schema-shaped test data; no captured account data.",
+  "copilot_plan": "individual",
+  "token_based_billing": true,
+  "quota_reset_date": "2031-06-01",
+  "quota_snapshots": {
+    "chat": {
+      "credits_used": 30,
+      "entitlement": 80,
+      "has_quota": true,
+      "percent_remaining": 62.5,
+      "remaining": 50,
+      "quota_remaining": 50,
+      "token_based_billing": true,
+      "unlimited": false
+    },
+    "completions": {
+      "credits_used": 360,
+      "entitlement": 1200,
+      "has_quota": true,
+      "percent_remaining": 70,
+      "remaining": 840,
+      "quota_remaining": 840,
+      "token_based_billing": true,
+      "unlimited": false
+    },
+    "premium_interactions": {
+      "credits_used": 0,
+      "entitlement": 0,
+      "has_quota": false,
+      "percent_remaining": 0,
+      "remaining": 0,
+      "quota_remaining": 0,
+      "token_based_billing": true,
+      "unlimited": false
+    }
+  }
+}
