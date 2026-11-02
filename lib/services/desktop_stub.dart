@@ -2,12 +2,34 @@ import 'package:flutter/foundation.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
 import '../l10n/app_localizations.dart';
+import 'window_edge.dart';
 
 /// Web build: no tray / window management.
 class DesktopIntegration {
   bool get supported => false;
 
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
+
+  /// True while the (custom-drawn) title bar is in use; never on web.
+  bool get hasCustomChrome => false;
+
+  /// True where TokenBar draws its own minimize / maximize / close buttons.
+  bool get drawsWindowButtons => false;
+
+  /// True where the window has no native resize border.
+  bool get needsResizeEdges => false;
+
+  final ValueNotifier<bool> maximized = ValueNotifier(false);
+
+  Future<void> startDragging() async {}
+
+  Future<void> toggleMaximize() async {}
+
+  Future<void> minimizeWindow() async {}
+
+  Future<void> closeWindow() async {}
+
+  Future<void> startResizing(WindowEdge edge) async {}
 
   Future<void> init({
     required void Function() onRefresh,

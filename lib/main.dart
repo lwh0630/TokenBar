@@ -19,6 +19,7 @@ import 'state/app_controller.dart';
 import 'state/settings.dart';
 import 'state/update_controller.dart';
 import 'ui/tray_panel.dart';
+import 'ui/window_chrome.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -133,7 +134,9 @@ class _TokenBarAppState extends State<TokenBarApp> with WidgetsBindingObserver {
             Offstage(
               offstage: panel,
               // Pages are transparent: the ambient glow sits under the Navigator.
-              child: AmbientBackground(child: child),
+              child: AmbientBackground(
+                child: WindowChrome(desktop: desktop, child: child ?? const SizedBox.shrink()),
+              ),
             ),
             // The panel sits above the Navigator, so it has no Overlay of its own;
             // tooltips (and anything else that floats) need one.
