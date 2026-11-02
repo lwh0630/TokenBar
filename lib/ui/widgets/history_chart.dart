@@ -78,7 +78,10 @@ class _ViewModel {
 
 class _HistoryChartState extends State<HistoryChart> {
   HistoryView? _preferredView;
-  ModelMetric _modelMetric = ModelMetric.tokens;
+
+  /// Cost is the default; [_effectiveMetric] falls back to tokens while the data
+  /// has no cost (a provider without pricing, an unknown model).
+  ModelMetric _modelMetric = ModelMetric.cost;
   final Map<String, Set<String>> _hidden = {};
   final Map<String, _ViewModel> _cache = {};
   late DateTime _now;

@@ -10,6 +10,7 @@ import '../../state/app_controller.dart';
 import '../../state/settings.dart';
 import '../../state/update_controller.dart';
 import '../update_dialog.dart';
+import '../widgets/background_picker.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -59,6 +60,7 @@ class SettingsPage extends StatelessWidget {
                         onSelectionChanged: (v) => update(s.copyWith(language: v.first)),
                       ),
                     ),
+                    const BackgroundPicker(),
                   ]),
                   _Section(l.sectionRefresh, [
                     ListTile(

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tokenbar_core/tokenbar_core.dart' show localAccessSupported;
 
+import '../app/design/background.dart';
 import '../l10n/app_localizations.dart';
 
 /// Interface language. [system] follows the device: Chinese when the device's
@@ -65,6 +66,9 @@ class AppSettings {
     this.trayAccountId = '',
     this.autoCheckUpdates = true,
     this.skippedVersion = '',
+    this.background = BackgroundStyle.aurora,
+    this.backgroundImage = '',
+    this.backgroundDim = 0.45,
   });
 
   factory AppSettings.defaults() => AppSettings(
@@ -96,6 +100,15 @@ class AppSettings {
   /// Release tag the user chose not to be reminded about.
   final String skippedVersion;
 
+  /// Window background: a gradient preset or the picture at [backgroundImage].
+  final BackgroundStyle background;
+
+  /// Path of the stored background picture (copied into the app's own folder).
+  final String backgroundImage;
+
+  /// Veil strength over the picture, 0..0.85.
+  final double backgroundDim;
+
   bool get serverConfigured => serverUrl.trim().isNotEmpty && serverToken.trim().isNotEmpty;
 
   AppSettings copyWith({
@@ -116,6 +129,9 @@ class AppSettings {
     String? trayAccountId,
     bool? autoCheckUpdates,
     String? skippedVersion,
+    BackgroundStyle? background,
+    String? backgroundImage,
+    double? backgroundDim,
   }) => AppSettings(
     themeMode: themeMode ?? this.themeMode,
     language: language ?? this.language,
@@ -134,6 +150,9 @@ class AppSettings {
     trayAccountId: trayAccountId ?? this.trayAccountId,
     autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
     skippedVersion: skippedVersion ?? this.skippedVersion,
+    background: background ?? this.background,
+    backgroundImage: backgroundImage ?? this.backgroundImage,
+    backgroundDim: backgroundDim ?? this.backgroundDim,
   );
 
   /// Non-secret fields (the server token lives in secure storage).
@@ -154,6 +173,9 @@ class AppSettings {
     'trayAccountId': trayAccountId,
     'autoCheckUpdates': autoCheckUpdates,
     'skippedVersion': skippedVersion,
+    'background': background.name,
+    'backgroundImage': backgroundImage,
+    'backgroundDim': backgroundDim,
   };
 
   factory AppSettings.fromJson(Map<String, Object?> json, {String token = ''}) {
@@ -187,6 +209,14 @@ class AppSettings {
       trayAccountId: pick<String>('trayAccountId', d.trayAccountId),
       autoCheckUpdates: pick<bool>('autoCheckUpdates', d.autoCheckUpdates),
       skippedVersion: pick<String>('skippedVersion', d.skippedVersion),
+      background: BackgroundStyle.values.firstWhere(
+        (b) => b.name == json['background'],
+        orElse: () => d.background,
+      ),
+      backgroundImage: pick<String>('backgroundImage', d.backgroundImage),
+      backgroundDim: json['backgroundDim'] is num
+          ? (json['backgroundDim'] as num).toDouble().clamp(0.0, 0.85)
+          : d.backgroundDim,
     );
   }
 }

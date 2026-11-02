@@ -5,6 +5,26 @@ import 'package:flutter/services.dart';
 
 import 'tokens.dart';
 
+// ----------------------------------------------------------------- filter
+
+/// Backdrop filter of every glass surface: a gaussian blur plus a saturation
+/// boost, so the colors behind the glass stay vivid ("vibrancy") instead of
+/// turning grey.
+ImageFilter glassFilter(double blur) {
+  const s = 1.55; // saturation
+  const r = 0.2126, g = 0.7152, b = 0.0722; // luminance weights
+  final matrix = <double>[
+    r * (1 - s) + s, g * (1 - s), b * (1 - s), 0, 0, //
+    r * (1 - s), g * (1 - s) + s, b * (1 - s), 0, 0, //
+    r * (1 - s), g * (1 - s), b * (1 - s) + s, 0, 0, //
+    0, 0, 0, 1, 0,
+  ];
+  return ImageFilter.compose(
+    outer: ImageFilter.blur(sigmaX: blur, sigmaY: blur, tileMode: TileMode.clamp),
+    inner: ColorFilter.matrix(matrix),
+  );
+}
+
 // --------------------------------------------------------------- painters
 
 /// Soft drop shadow drawn only *outside* the shape, so it does not darken the
@@ -153,7 +173,7 @@ class GlassSurface extends StatelessWidget {
       child: ClipRRect(
         borderRadius: shape,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          filter: glassFilter(blur),
           child: CustomPaint(
             foregroundPainter: _RimPainter(
               radius: radius,
@@ -252,9 +272,10 @@ class _PressableState extends State<Pressable> {
 
 // -------------------------------------------------------------------- card
 
-/// Card-level glass without a per-card backdrop blur (cheap in long scrolling
-/// lists): translucent fill, lit rim and soft shadow. When [onTap] is set it
-/// lifts on hover and dips on press.
+/// Card-level glass: translucent fill over a *light* backdrop blur ([blur],
+/// smaller than chrome's), lit rim and soft shadow. Pass `blur: 0` when the
+/// card already sits on another glass surface (tray panel, dialogs). When
+/// [onTap] is set it lifts on hover and dips on press.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -263,6 +284,7 @@ class GlassCard extends StatelessWidget {
     this.padding,
     this.radius = Rd.lg,
     this.clip = true,
+    this.blur = 16,
   });
 
   final Widget child;
@@ -270,6 +292,10 @@ class GlassCard extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final double radius;
   final bool clip;
+  final double blur;
+
+  Widget _maybeBlur(Widget child) =>
+      blur <= 0 ? child : BackdropFilter(filter: glassFilter(blur), child: child);
 
   @override
   Widget build(BuildContext context) {
@@ -300,9 +326,11 @@ class GlassCard extends StatelessWidget {
             borderRadius: shape,
             // A transparent Material under the tinted fill keeps ListTile / InkWell
             // children from painting their ink behind the fill.
-            child: ColoredBox(
-              color: g.fill,
-              child: Material(type: MaterialType.transparency, child: content),
+            child: _maybeBlur(
+              ColoredBox(
+                color: g.fill,
+                child: Material(type: MaterialType.transparency, child: content),
+              ),
             ),
           ),
         ),

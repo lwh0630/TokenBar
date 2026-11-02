@@ -5,7 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'app/app_shell.dart';
-import 'app/design/ambient_background.dart';
+import 'app/app_background.dart';
 import 'app/theme.dart';
 import 'demo/demo_data.dart';
 import 'l10n/app_locale.dart';
@@ -134,7 +134,7 @@ class _TokenBarAppState extends State<TokenBarApp> with WidgetsBindingObserver {
             Offstage(
               offstage: panel,
               // Pages are transparent: the ambient glow sits under the Navigator.
-              child: AmbientBackground(
+              child: AppBackground(
                 child: WindowChrome(desktop: desktop, child: child ?? const SizedBox.shrink()),
               ),
             ),

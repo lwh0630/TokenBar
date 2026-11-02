@@ -63,8 +63,14 @@ Future<void> _dispose(WidgetTester tester, AppController c) async {
   c.dispose();
 }
 
-int _shownPage(WidgetTester tester) =>
-    tester.widget<IndexedStack>(find.byType(IndexedStack).first).index!;
+/// Selected page: the IndexedStack index on wide layouts, the PageView page on phones.
+int _shownPage(WidgetTester tester) {
+  final pageView = find.byType(PageView);
+  if (pageView.evaluate().isNotEmpty) {
+    return tester.widget<PageView>(pageView).controller!.page!.round();
+  }
+  return tester.widget<IndexedStack>(find.byType(IndexedStack).first).index!;
+}
 
 void main() {
   testWidgets('wide layout shows the glass sidebar and switches pages', (tester) async {
@@ -96,6 +102,45 @@ void main() {
     expect(_shownPage(tester), 2);
 
     expect(tester.takeException(), isNull);
+    await _dispose(tester, controller);
+  });
+
+  testWidgets('phones swipe between the pages and the bottom bar follows', (tester) async {
+    final (controller, _) = await _pump(tester, const Size(400, 800));
+    expect(_shownPage(tester), 0);
+
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 1);
+
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 2);
+
+    // No page after Settings: it stays put.
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 2);
+
+    await tester.fling(find.byType(PageView), const Offset(300, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 1);
+
+    // Tapping a far tab animates straight there (it must not stop on page 1).
+    await tester.tap(find.text('Quota').last);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 0);
+    await tester.tap(find.text('Settings').last);
+    await tester.pumpAndSettle();
+    expect(_shownPage(tester), 2);
+
+    expect(tester.takeException(), isNull);
+    await _dispose(tester, controller);
+  });
+
+  testWidgets('wide layout does not page by swiping', (tester) async {
+    final (controller, _) = await _pump(tester, const Size(1200, 800));
+    expect(find.byType(PageView), findsNothing);
     await _dispose(tester, controller);
   });
 

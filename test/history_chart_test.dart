@@ -210,6 +210,21 @@ void main() {
       expect(find.text(r'$20.00'), findsWidgets);
     });
 
+    testWidgets('cost is the default metric when there is cost, tokens otherwise', (tester) async {
+      final withCost = _series(
+        {
+          DateTime(2026, 10, 24, 13): {'gpt-5': 2000000, 'auto': 500000},
+        },
+        cost: {'gpt-5': 10, 'auto': 2},
+      );
+      await _pump(tester, chart: _chart(models: withCost));
+      // No tap: the dollar totals are already showing.
+      expect(find.text(r'$20.00'), findsWidgets);
+
+      await _pump(tester, chart: _chart(models: _threeModels));
+      expect(find.textContaining(r'$'), findsNothing);
+    });
+
     testWidgets('more models than colors fold into "other"', (tester) async {
       final many = _series({
         DateTime(2026, 10, 24, 13): {

@@ -351,6 +351,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTheme => 'Theme';
 
   @override
+  String get settingsBackground => 'Background';
+
+  @override
+  String get backgroundAurora => 'Aurora';
+
+  @override
+  String get backgroundSunset => 'Sunset';
+
+  @override
+  String get backgroundOcean => 'Ocean';
+
+  @override
+  String get backgroundForest => 'Forest';
+
+  @override
+  String get backgroundGraphite => 'Graphite';
+
+  @override
+  String get backgroundImage => 'Custom image';
+
+  @override
+  String get backgroundChooseImage => 'Choose image';
+
+  @override
+  String get backgroundChangeImage => 'Change image';
+
+  @override
+  String get backgroundRemoveImage => 'Remove image';
+
+  @override
+  String get backgroundDim => 'Overlay strength';
+
+  @override
+  String get backgroundDimHint =>
+      'A stronger overlay keeps text readable; a weaker one lets the picture show.';
+
+  @override
+  String get backgroundImageFailed => 'This image could not be used';
+
+  @override
   String get themeLight => 'Light';
 
   @override

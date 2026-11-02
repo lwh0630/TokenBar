@@ -331,6 +331,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTheme => '主题';
 
   @override
+  String get settingsBackground => '背景';
+
+  @override
+  String get backgroundAurora => '极光';
+
+  @override
+  String get backgroundSunset => '日落';
+
+  @override
+  String get backgroundOcean => '海洋';
+
+  @override
+  String get backgroundForest => '森林';
+
+  @override
+  String get backgroundGraphite => '石墨';
+
+  @override
+  String get backgroundImage => '自定义图片';
+
+  @override
+  String get backgroundChooseImage => '选择图片';
+
+  @override
+  String get backgroundChangeImage => '更换图片';
+
+  @override
+  String get backgroundRemoveImage => '移除图片';
+
+  @override
+  String get backgroundDim => '遮罩强度';
+
+  @override
+  String get backgroundDimHint => '遮罩越强，文字越清晰；越弱，图片越明显。';
+
+  @override
+  String get backgroundImageFailed => '无法使用这张图片';
+
+  @override
   String get themeLight => '浅色';
 
   @override
