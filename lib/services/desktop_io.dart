@@ -63,6 +63,13 @@ class DesktopIntegration with TrayListener, WindowListener {
     _l10n = l10n;
     _minimizeToTray = minimizeToTray;
 
+    // A second launch (Windows) or a Dock-icon reopen (macOS) asks the running
+    // instance to come forward; the native side calls this channel.
+    _instanceChannel.setMethodCallHandler((call) async {
+      if (call.method == 'activate' && !_quitting) await showMainWindow();
+      return null;
+    });
+
     await windowManager.ensureInitialized();
     const options = WindowOptions(
       size: _mainSize,
@@ -207,6 +214,10 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   static const _trayChannel = MethodChannel('tray_manager');
+
+  /// Native -> Dart: "another launch wants the window" (see `windows/runner`
+  /// and `macos/Runner/AppDelegate.swift`).
+  static const _instanceChannel = MethodChannel('tokenbar/instance');
 
   /// Menu keys of the "show in tray" choices: `tray:` (auto) or `tray:<accountId>`.
   static const _trayKeyPrefix = 'tray:';
@@ -377,9 +388,29 @@ class DesktopIntegration with TrayListener, WindowListener {
   Future<void> quit() => _quit();
 
   Future<void> _quit() async {
+    if (_quitting) return;
     _quitting = true;
-    if (_trayReady) await trayManager.destroy();
-    await windowManager.setPreventClose(false);
+    // Hide first: tearing the engine down takes a moment, and a visible window
+    // that no longer repaints looks like a hang. Each step is bounded so a
+    // misbehaving plugin cannot block the exit.
+    const limit = Duration(seconds: 2);
+    try {
+      await windowManager.hide().timeout(limit);
+    } catch (e) {
+      debugPrint('hide on quit failed: $e');
+    }
+    if (_trayReady) {
+      try {
+        await trayManager.destroy().timeout(limit);
+      } catch (e) {
+        debugPrint('tray destroy failed: $e');
+      }
+    }
+    try {
+      await windowManager.setPreventClose(false).timeout(limit);
+    } catch (e) {
+      debugPrint('setPreventClose failed: $e');
+    }
     await windowManager.destroy();
   }
 

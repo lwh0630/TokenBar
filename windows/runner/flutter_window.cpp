@@ -1,11 +1,15 @@
 #include "flutter_window.h"
 
+#include <flutter/method_result_functions.h>
+#include <flutter/standard_method_codec.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+    : project_(project),
+      activate_message_(::RegisterWindowMessageW(L"TokenBar.ActivateInstance")) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -25,6 +29,10 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  instance_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "tokenbar/instance",
+          &flutter::StandardMethodCodec::GetInstance());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -39,7 +47,34 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+void FlutterWindow::HandleActivateRequest() {
+  HWND hwnd = GetHandle();
+  if (!hwnd) {
+    return;
+  }
+  // Preferred: let Dart restore the window, so tray-panel mode is left properly.
+  // If Dart is not listening yet (still starting up), fall back to a plain
+  // native restore.
+  auto fallback = [hwnd]() {
+    if (::IsIconic(hwnd)) {
+      ::ShowWindow(hwnd, SW_RESTORE);
+    } else {
+      ::ShowWindow(hwnd, SW_SHOW);
+    }
+    ::SetForegroundWindow(hwnd);
+  };
+  if (!instance_channel_) {
+    fallback();
+    return;
+  }
+  instance_channel_->InvokeMethod(
+      "activate", nullptr,
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          nullptr, nullptr, fallback));
+}
+
 void FlutterWindow::OnDestroy() {
+  instance_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +86,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == activate_message_) {
+    HandleActivateRequest();
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
