@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
-import '../app/design/ambient_background.dart';
+import '../app/app_background.dart';
 import '../app/design/glass.dart';
 import '../app/design/tokens.dart';
 import '../app/theme.dart';
@@ -43,7 +43,7 @@ class TrayPanel extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: AmbientBackground(
+      child: AppBackground(
         animate: false,
         child: DecoratedBox(
           decoration: BoxDecoration(border: Border.all(color: context.glass.hairline)),

@@ -633,6 +633,84 @@ abstract class AppLocalizations {
   /// **'主题'**
   String get settingsTheme;
 
+  /// No description provided for @settingsBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景'**
+  String get settingsBackground;
+
+  /// No description provided for @backgroundAurora.
+  ///
+  /// In zh, this message translates to:
+  /// **'极光'**
+  String get backgroundAurora;
+
+  /// No description provided for @backgroundSunset.
+  ///
+  /// In zh, this message translates to:
+  /// **'日落'**
+  String get backgroundSunset;
+
+  /// No description provided for @backgroundOcean.
+  ///
+  /// In zh, this message translates to:
+  /// **'海洋'**
+  String get backgroundOcean;
+
+  /// No description provided for @backgroundForest.
+  ///
+  /// In zh, this message translates to:
+  /// **'森林'**
+  String get backgroundForest;
+
+  /// No description provided for @backgroundGraphite.
+  ///
+  /// In zh, this message translates to:
+  /// **'石墨'**
+  String get backgroundGraphite;
+
+  /// No description provided for @backgroundImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义图片'**
+  String get backgroundImage;
+
+  /// No description provided for @backgroundChooseImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择图片'**
+  String get backgroundChooseImage;
+
+  /// No description provided for @backgroundChangeImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换图片'**
+  String get backgroundChangeImage;
+
+  /// No description provided for @backgroundRemoveImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除图片'**
+  String get backgroundRemoveImage;
+
+  /// No description provided for @backgroundDim.
+  ///
+  /// In zh, this message translates to:
+  /// **'遮罩强度'**
+  String get backgroundDim;
+
+  /// No description provided for @backgroundDimHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'遮罩越强，文字越清晰；越弱，图片越明显。'**
+  String get backgroundDimHint;
+
+  /// No description provided for @backgroundImageFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法使用这张图片'**
+  String get backgroundImageFailed;
+
   /// No description provided for @themeLight.
   ///
   /// In zh, this message translates to:
