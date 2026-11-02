@@ -162,7 +162,10 @@ class GlassSurface extends StatelessWidget {
               sheen: g.highlight.withValues(alpha: g.highlight.a * 0.35),
               focus: null,
             ),
-            child: ColoredBox(color: fill ?? g.fillStrong, child: content),
+            child: ColoredBox(
+              color: fill ?? g.fillStrong,
+              child: Material(type: MaterialType.transparency, child: content),
+            ),
           ),
         ),
       ),
@@ -295,7 +298,12 @@ class GlassCard extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: shape,
-            child: ColoredBox(color: g.fill, child: content),
+            // A transparent Material under the tinted fill keeps ListTile / InkWell
+            // children from painting their ink behind the fill.
+            child: ColoredBox(
+              color: g.fill,
+              child: Material(type: MaterialType.transparency, child: content),
+            ),
           ),
         ),
       );
