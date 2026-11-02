@@ -3,7 +3,9 @@ package dev.tokenbar.app
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
@@ -41,6 +43,14 @@ class TokenBarWidgetProvider : HomeWidgetProvider() {
             row.setTextViewText(R.id.row_session, percentText(session))
             row.setTextColor(R.id.row_session, quotaColor(session))
             row.setProgressBar(R.id.row_bar, 100, session.coerceAtLeast(0), false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Tint the bar like the app does (green / amber / red); older Android keeps green.
+                row.setColorStateList(
+                    R.id.row_bar,
+                    "setProgressTintList",
+                    ColorStateList.valueOf(quotaColor(session)),
+                )
+            }
             row.setTextViewText(
                 R.id.row_detail,
                 listOfNotNull(

@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/design/glass.dart';
+import '../../app/design/reveal.dart';
+import '../../app/design/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
 import '../../state/settings.dart';
@@ -86,14 +89,17 @@ class DashboardPage extends StatelessWidget {
                           columns: columns,
                           spacing: 14,
                           children: [
-                            for (final s in snapshots)
-                              AccountCard(
+                            for (final (i, s) in snapshots.indexed)
+                              Reveal(
                                 key: ValueKey(s.accountId),
-                                snapshot: s,
-                                now: now,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => AccountDetailPage(accountId: s.accountId),
+                                index: i,
+                                child: AccountCard(
+                                  snapshot: s,
+                                  now: now,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => AccountDetailPage(accountId: s.accountId),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -162,26 +168,21 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = theme.colorScheme.error;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Material(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(Icons.cloud_off, color: theme.colorScheme.onErrorContainer, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(text, style: TextStyle(color: theme.colorScheme.onErrorContainer)),
-                ),
-              ],
+      padding: const EdgeInsets.fromLTRB(Sp.x4, Sp.x1, Sp.x4, Sp.x2),
+      child: GlassCard(
+        onTap: onTap,
+        radius: Rd.md,
+        padding: const EdgeInsets.all(Sp.x3),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off, color: color, size: 18),
+            const SizedBox(width: Sp.x2),
+            Expanded(
+              child: Text(text, style: TextStyle(color: color)),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -235,16 +236,17 @@ class _EmptyState extends StatelessWidget {
               alignment: WrapAlignment.center,
               children: [
                 if (!kIsWeb)
-                  FilledButton.icon(
+                  GlassButton(
+                    kind: GlassButtonKind.primary,
                     onPressed: onOpenAccounts,
-                    icon: const Icon(Icons.add),
-                    label: Text(l.addAccount),
+                    icon: Icons.add,
+                    label: l.addAccount,
                   ),
                 if (kIsWeb || serverMode)
-                  OutlinedButton.icon(
+                  GlassButton(
                     onPressed: onOpenSettings,
-                    icon: const Icon(Icons.dns_outlined),
-                    label: Text(l.serverSettings),
+                    icon: Icons.dns_outlined,
+                    label: l.serverSettings,
                   ),
               ],
             ),

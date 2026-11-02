@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/design/glass.dart';
+import '../../app/design/tokens.dart';
 import '../../app_info.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
@@ -211,19 +213,31 @@ class _AboutSection extends StatelessWidget {
                 ),
               ),
         trailing: available
-            ? FilledButton(
+            ? GlassButton(
+                kind: GlassButtonKind.primary,
+                compact: true,
                 onPressed: () => showUpdateDialog(context, u, u.release!),
-                child: Text(l.viewUpdate),
+                label: l.viewUpdate,
               )
-            : OutlinedButton(
-                onPressed: u.status == UpdateStatus.checking ? null : () => u.check(manual: true),
-                child: u.status == UpdateStatus.checking
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(l.checkForUpdates),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (u.status == UpdateStatus.checking) ...[
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: Sp.x2),
+                  ],
+                  GlassButton(
+                    compact: true,
+                    onPressed: u.status == UpdateStatus.checking
+                        ? null
+                        : () => u.check(manual: true),
+                    label: l.checkForUpdates,
+                  ),
+                ],
               ),
       ),
       SwitchListTile(
@@ -251,20 +265,13 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-            child: Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
-            ),
-          ),
-          Card(child: Column(children: children)),
+          SectionHeader(title),
+          GlassCard(child: Column(children: children)),
         ],
       ),
     );
@@ -398,9 +405,9 @@ class _SyncSectionState extends State<_SyncSection> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  FilledButton(onPressed: _save, child: Text(l.save)),
+                  GlassButton(kind: GlassButtonKind.primary, onPressed: _save, label: l.save),
                   const SizedBox(width: 8),
-                  OutlinedButton(onPressed: _testing ? null : _test, child: Text(l.testConnection)),
+                  GlassButton(onPressed: _testing ? null : _test, label: l.testConnection),
                   const SizedBox(width: 12),
                   if (_testing)
                     const SizedBox(

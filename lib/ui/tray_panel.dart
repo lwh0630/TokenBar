@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
+import '../app/design/ambient_background.dart';
+import '../app/design/glass.dart';
+import '../app/design/tokens.dart';
 import '../app/theme.dart';
 import '../l10n/app_localizations.dart';
 import '../state/app_controller.dart';
@@ -36,43 +39,45 @@ class TrayPanel extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final c = context.watch<AppController>();
     final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
     final snapshots = c.snapshots;
 
     return Material(
-      color: dark ? const Color(0xFF1E1E20) : const Color(0xFFF6F6F8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(border: Border.all(color: theme.colorScheme.outlineVariant)),
-        child: Column(
-          children: [
-            _Header(controller: c),
-            Expanded(
-              child: snapshots.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          c.refreshing ? l.quotaLoading : l.noAccountsYetPanel,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+      type: MaterialType.transparency,
+      child: AmbientBackground(
+        animate: false,
+        child: DecoratedBox(
+          decoration: BoxDecoration(border: Border.all(color: context.glass.hairline)),
+          child: Column(
+            children: [
+              _Header(controller: c),
+              Expanded(
+                child: snapshots.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            c.refreshing ? l.quotaLoading : l.noAccountsYetPanel,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
+                      )
+                    : ValueListenableBuilder(
+                        valueListenable: c.now,
+                        builder: (context, now, _) => ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          itemCount: snapshots.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (_, i) => _AccountTile(snapshot: snapshots[i], now: now),
+                        ),
                       ),
-                    )
-                  : ValueListenableBuilder(
-                      valueListenable: c.now,
-                      builder: (context, now, _) => ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                        itemCount: snapshots.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _AccountTile(snapshot: snapshots[i], now: now),
-                      ),
-                    ),
-            ),
-            Divider(height: 1, color: theme.colorScheme.outlineVariant),
-            _Footer(controller: c),
-          ],
+              ),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+              _Footer(controller: c),
+            ],
+          ),
         ),
       ),
     );
@@ -114,17 +119,23 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: l.refresh,
-            onPressed: c.refreshing ? null : c.refresh,
-            visualDensity: VisualDensity.compact,
-            icon: c.refreshing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+          Tooltip(
+            message: l.refresh,
+            child: c.refreshing
+                ? const Padding(
+                    padding: EdgeInsets.all(Sp.x2),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   )
-                : const Icon(Icons.refresh, size: 20),
+                : GlassButton(
+                    kind: GlassButtonKind.ghost,
+                    compact: true,
+                    onPressed: c.refresh,
+                    icon: Icons.refresh,
+                  ),
           ),
         ],
       ),
@@ -145,16 +156,11 @@ class _AccountTile extends StatelessWidget {
     final s = snapshot;
     final provider = ProviderRegistry.instance.byId(s.providerId);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final dark = theme.brightness == Brightness.dark;
     final windows = s.windows.take(2).toList();
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xFF2C2C2E) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
+      radius: Rd.md,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -277,24 +283,23 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final desktop = controller.desktop;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        children: [
-          TextButton.icon(
-            onPressed: desktop.showMainWindow,
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: Text(l.openTokenBar),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: desktop.quit,
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+    // Fixed height so TrayPanel.heightFor stays exact.
+    return SizedBox(
+      height: 51,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            GlassButton(
+              kind: GlassButtonKind.ghost,
+              onPressed: desktop.showMainWindow,
+              icon: Icons.open_in_new,
+              label: l.openTokenBar,
             ),
-            child: Text(l.quit),
-          ),
-        ],
+            const Spacer(),
+            GlassButton(kind: GlassButtonKind.ghost, onPressed: desktop.quit, label: l.quit),
+          ],
+        ),
       ),
     );
   }

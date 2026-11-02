@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app/design/glass.dart';
 import '../l10n/app_localizations.dart';
 import '../services/update/update_service.dart';
 import '../state/update_controller.dart';
@@ -17,13 +18,14 @@ Future<bool> openReleasePage(Uri url) async {
 
 /// "A new version is available" dialog.
 Future<void> showUpdateDialog(BuildContext context, UpdateController updates, ReleaseInfo release) {
-  return showDialog<void>(
+  return showGlassDialog<void>(
     context: context,
     builder: (ctx) {
       final l = AppLocalizations.of(ctx);
       final theme = Theme.of(ctx);
       final notes = release.notes.isEmpty ? l.updateNoNotes : release.notes;
-      return AlertDialog(
+      return GlassDialog(
+        width: 520,
         title: Text(l.newVersionAvailable(release.tag)),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460, maxHeight: 320),
@@ -43,20 +45,26 @@ Future<void> showUpdateDialog(BuildContext context, UpdateController updates, Re
           ),
         ),
         actions: [
-          TextButton(
+          GlassButton(
+            kind: GlassButtonKind.ghost,
             onPressed: () {
               updates.skip(release);
               Navigator.pop(ctx);
             },
-            child: Text(l.skipThisVersion),
+            label: l.skipThisVersion,
           ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.later)),
-          FilledButton(
+          GlassButton(
+            kind: GlassButtonKind.ghost,
+            onPressed: () => Navigator.pop(ctx),
+            label: l.later,
+          ),
+          GlassButton(
+            kind: GlassButtonKind.primary,
             onPressed: () {
               openReleasePage(release.pageUrl);
               Navigator.pop(ctx);
             },
-            child: Text(l.goToDownload),
+            label: l.goToDownload,
           ),
         ],
       );

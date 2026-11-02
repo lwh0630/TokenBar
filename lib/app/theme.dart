@@ -1,11 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// macOS-flavoured design tokens: neutral grays, system blue, hairline borders,
-/// generous radii and almost no elevation.
+import 'design/tokens.dart';
+
+/// Liquid-glass design system on top of Material 3.
+///
+/// Material supplies behavior (focus, text fields, menus); everything the user
+/// sees is restyled here: translucent surfaces over an ambient background,
+/// hairline lit edges, generous radii, no ink ripples. The glass colors live in
+/// the [GlassColors] theme extension (see `design/tokens.dart`); the widgets
+/// that need real blur are in `design/glass.dart`.
 class AppTheme {
-  static const _accentLight = Color(0xFF007AFF);
-  static const _accentDark = Color(0xFF0A84FF);
+  static const _accentLight = Color(0xFF0A74FF);
+  static const _accentDark = Color(0xFF4C93FF);
 
   static const radius = 14.0;
 
@@ -47,30 +55,28 @@ class AppTheme {
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
+    final g = GlassColors.of(brightness);
     final accent = isDark ? _accentDark : _accentLight;
 
-    final surface = isDark ? const Color(0xFF2C2C2E) : Colors.white;
-    final background = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7);
-    final onSurface = isDark ? const Color(0xFFF2F2F7) : const Color(0xFF1D1D1F);
-    final muted = isDark ? const Color(0xFF98989F) : const Color(0xFF6E6E73);
-    final hairline = isDark ? const Color(0x24FFFFFF) : const Color(0x14000000);
+    final onSurface = isDark ? const Color(0xFFF1F3FA) : const Color(0xFF151822);
+    final muted = isDark ? const Color(0xFF9BA1B4) : const Color(0xFF626879);
 
     final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: brightness).copyWith(
       primary: accent,
       onPrimary: Colors.white,
-      surface: surface,
+      surface: g.panel,
       onSurface: onSurface,
       onSurfaceVariant: muted,
-      surfaceContainerLowest: background,
-      surfaceContainerLow: surface,
-      surfaceContainer: surface,
-      surfaceContainerHigh: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFEDEDF0),
-      surfaceContainerHighest: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
+      surfaceContainerLowest: g.base,
+      surfaceContainerLow: g.panel,
+      surfaceContainer: g.panel,
+      surfaceContainerHigh: isDark ? const Color(0xFF242836) : const Color(0xFFEEF0F7),
+      surfaceContainerHighest: isDark ? const Color(0xFF2C3142) : const Color(0xFFE6E9F2),
       secondaryContainer: accent.withValues(alpha: isDark ? 0.24 : 0.12),
       onSecondaryContainer: accent,
       outline: muted,
-      outlineVariant: hairline,
-      error: isDark ? const Color(0xFFFF453A) : const Color(0xFFFF3B30),
+      outlineVariant: g.hairline,
+      error: isDark ? const Color(0xFFFF6B61) : const Color(0xFFE5392E),
     );
 
     final f = fonts;
@@ -82,87 +88,150 @@ class AppTheme {
       fontFamilyFallback: f.fallback,
     );
 
-    // Tighter, calmer type scale than stock M3.
+    // Calm, tight type scale: heavier titles, slightly negative tracking on
+    // the large sizes, regular body.
     final text = base.textTheme
         .copyWith(
           headlineSmall: base.textTheme.headlineSmall?.copyWith(
-            fontSize: 22,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+            height: 1.2,
           ),
           titleLarge: base.textTheme.titleLarge?.copyWith(
             fontSize: 18,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
           ),
           titleMedium: base.textTheme.titleMedium?.copyWith(
             fontSize: 15,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
           ),
           titleSmall: base.textTheme.titleSmall?.copyWith(
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
-          bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 13.5),
-          bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 12),
-          labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 11),
+          bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 14.5),
+          bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 13.5, height: 1.35),
+          bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.35),
+          labelLarge: base.textTheme.labelLarge?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+          labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 11, letterSpacing: 0.1),
         )
         .apply(bodyColor: onSurface, displayColor: onSurface);
 
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
+    final r12 = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Rd.md));
+    final tooltipFill = isDark ? const Color(0xE62A2F40) : const Color(0xE61B1F2C);
 
     return base.copyWith(
+      extensions: [g],
       textTheme: text,
-      scaffoldBackgroundColor: background,
-      canvasColor: background,
-      dividerColor: hairline,
-      dividerTheme: DividerThemeData(color: hairline, space: 1, thickness: 1),
+      // The ambient background lives under the Navigator (see main.dart), so
+      // pages are transparent. [canvasColor] stays opaque: dropdown menus and
+      // other Material surfaces that cannot be translucent use it.
+      scaffoldBackgroundColor: Colors.transparent,
+      canvasColor: g.panel,
+      dividerColor: g.hairline,
+      dividerTheme: DividerThemeData(color: g.hairline, space: 1, thickness: 1),
       splashFactory: NoSplash.splashFactory,
-      highlightColor: onSurface.withValues(alpha: 0.04),
-      hoverColor: onSurface.withValues(alpha: 0.04),
+      highlightColor: Colors.transparent,
+      hoverColor: onSurface.withValues(alpha: 0.05),
+      focusColor: accent.withValues(alpha: 0.12),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _GlassPageTransitions(),
+          TargetPlatform.iOS: _GlassPageTransitions(),
+          TargetPlatform.windows: _GlassPageTransitions(),
+          TargetPlatform.macOS: _GlassPageTransitions(),
+          TargetPlatform.linux: _GlassPageTransitions(),
+          TargetPlatform.fuchsia: _GlassPageTransitions(),
+        },
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: accent,
+        circularTrackColor: Colors.transparent,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: accent,
+        selectionColor: accent.withValues(alpha: 0.28),
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: surface,
+        color: g.fill,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black,
+        shadowColor: g.shadow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radius),
-          side: BorderSide(color: hairline),
+          borderRadius: BorderRadius.circular(Rd.lg),
+          side: BorderSide(color: g.hairline),
         ),
       ),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: background,
+        toolbarHeight: 60,
+        // A transparent bar would otherwise be judged "dark" and get light status
+        // icons on the light theme.
+        systemOverlayStyle: (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+            ),
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: text.titleLarge,
         foregroundColor: onSurface,
       ),
-      listTileTheme: ListTileThemeData(iconColor: muted, shape: shape),
+      listTileTheme: ListTileThemeData(
+        iconColor: muted,
+        shape: r12,
+        contentPadding: const EdgeInsets.symmetric(horizontal: Sp.x4),
+      ),
       dialogTheme: DialogThemeData(
-        backgroundColor: surface,
+        backgroundColor: isDark ? const Color(0xF21A1D27) : const Color(0xF2FFFFFF),
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Rd.xl),
+          side: BorderSide(color: g.hairline),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surface,
+        backgroundColor: isDark ? const Color(0xF21A1D27) : const Color(0xF2FFFFFF),
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(Rd.xl)),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: surface,
+        color: isDark ? const Color(0xF21F2230) : const Color(0xF5FFFFFF),
         surfaceTintColor: Colors.transparent,
+        elevation: 12,
+        shadowColor: g.shadow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: hairline),
+          borderRadius: BorderRadius.circular(Rd.md),
+          side: BorderSide(color: g.hairline),
         ),
+        textStyle: text.bodyMedium,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: tooltipFill,
+        contentTextStyle: text.bodyMedium?.copyWith(color: Colors.white),
+        actionTextColor: const Color(0xFF8FB8FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Rd.md)),
+        insetPadding: const EdgeInsets.fromLTRB(Sp.x4, 0, Sp.x4, Sp.x4),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: accent.withValues(alpha: isDark ? 0.24 : 0.12),
+        elevation: 0,
+        indicatorColor: accent.withValues(alpha: isDark ? 0.28 : 0.14),
         height: 64,
         labelTextStyle: WidgetStatePropertyAll(
           text.labelSmall?.copyWith(fontWeight: FontWeight.w600),
@@ -173,41 +242,57 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF2F2F7),
+        fillColor: g.fillSubtle,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        contentPadding: const EdgeInsets.symmetric(horizontal: Sp.x3, vertical: 11),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(Rd.md),
+          borderSide: BorderSide(color: g.hairline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(Rd.md),
+          borderSide: BorderSide(color: g.hairline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: accent, width: 1.5),
+          borderRadius: BorderRadius.circular(Rd.md),
+          borderSide: BorderSide(color: accent, width: 1.6),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Rd.md),
+          borderSide: BorderSide(color: scheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Rd.md),
+          borderSide: BorderSide(color: scheme.error, width: 1.6),
+        ),
+        labelStyle: text.bodyMedium?.copyWith(color: muted),
+        helperStyle: text.bodySmall?.copyWith(color: muted),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          elevation: 0,
+          shape: r12,
+          padding: const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x3),
           textStyle: text.titleSmall,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          side: BorderSide(color: hairline),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: r12,
+          side: BorderSide(color: g.hairline),
+          backgroundColor: g.fill,
+          padding: const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x3),
           textStyle: text.titleSmall,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: text.titleSmall,
+        style: TextButton.styleFrom(shape: r12, textStyle: text.titleSmall),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Rd.sm + 2)),
+          foregroundColor: onSurface,
+          hoverColor: onSurface.withValues(alpha: 0.07),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -215,14 +300,14 @@ class AppTheme {
           textStyle: WidgetStatePropertyAll(
             text.labelLarge?.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
-          side: WidgetStatePropertyAll(BorderSide(color: hairline)),
+          side: WidgetStatePropertyAll(BorderSide(color: g.hairline)),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(Rd.sm + 2)),
           ),
           backgroundColor: WidgetStateProperty.resolveWith(
             (s) => s.contains(WidgetState.selected)
-                ? accent.withValues(alpha: isDark ? 0.28 : 0.14)
-                : Colors.transparent,
+                ? accent.withValues(alpha: isDark ? 0.3 : 0.15)
+                : g.fillSubtle,
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
             (s) => s.contains(WidgetState.selected) ? accent : muted,
@@ -230,27 +315,58 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        side: BorderSide(color: hairline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: g.hairline),
+        backgroundColor: g.fillSubtle,
+        selectedColor: accent.withValues(alpha: isDark ? 0.3 : 0.15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         labelStyle: text.labelLarge?.copyWith(fontSize: 12),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: const WidgetStatePropertyAll(Colors.white),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? const Color(0xFF34C759)
-              : (isDark ? const Color(0xFF48484A) : const Color(0xFFD1D1D6)),
+              ? (isDark ? const Color(0xFF32D74B) : const Color(0xFF34C759))
+              : (isDark ? const Color(0xFF454A5C) : const Color(0xFFD3D6E0)),
         ),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
-      tooltipTheme: TooltipThemeData(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFF3A3A3C),
-          borderRadius: BorderRadius.circular(8),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(6),
+        radius: const Radius.circular(6),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (s) => onSurface.withValues(alpha: s.contains(WidgetState.hovered) ? 0.42 : 0.24),
         ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 450),
+        decoration: BoxDecoration(color: tooltipFill, borderRadius: BorderRadius.circular(Rd.sm)),
         textStyle: text.bodySmall?.copyWith(color: Colors.white),
       ),
       visualDensity: VisualDensity.standard,
+    );
+  }
+}
+
+/// Short fade with a hint of upward travel; keeps pushed pages feeling like a
+/// layer of glass settling in rather than a platform slide.
+class _GlassPageTransitions extends PageTransitionsBuilder {
+  const _GlassPageTransitions();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(parent: animation, curve: Motion.curve);
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween(begin: const Offset(0, 0.015), end: Offset.zero).animate(curved),
+        child: child,
+      ),
     );
   }
 }

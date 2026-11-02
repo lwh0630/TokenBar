@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/design/tokens.dart';
 import '../../app/theme.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -23,7 +24,7 @@ class UsageBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final fill = (remaining.clamp(0, 100) / 100) * width;
+        final fillFraction = remaining.clamp(0, 100) / 100;
         final pace = paceRemaining;
         return SizedBox(
           height: height + 4,
@@ -37,14 +38,24 @@ class UsageBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(height),
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOutCubic,
-                height: height,
-                width: fill,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [color.withValues(alpha: 0.78), color]),
-                  borderRadius: BorderRadius.circular(height),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: fillFraction),
+                duration: Motion.of(context, Motion.slow + const Duration(milliseconds: 120)),
+                curve: Motion.curve,
+                builder: (context, f, _) => Container(
+                  height: height,
+                  width: f * width,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [color.withValues(alpha: 0.78), color]),
+                    borderRadius: BorderRadius.circular(height),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.28),
+                        blurRadius: 6,
+                        spreadRadius: -1,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (pace != null)

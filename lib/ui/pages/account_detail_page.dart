@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
+import '../../app/design/glass.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
 import '../format.dart';
@@ -101,7 +102,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
       body: ValueListenableBuilder(
         valueListenable: c.now,
         builder: (context, now, _) => ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.paddingOf(context).bottom),
           children: [
             Center(
               child: ConstrainedBox(
@@ -110,7 +111,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (s.windows.isNotEmpty)
-                      Card(
+                      GlassCard(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
                           child: Wrap(
@@ -132,7 +133,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                       ),
                     const SizedBox(height: 14),
                     if (s.windows.isNotEmpty)
-                      Card(
+                      GlassCard(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -150,7 +151,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                         ),
                       ),
                     const SizedBox(height: 14),
-                    Card(
+                    GlassCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -207,7 +208,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Card(
+                    GlassCard(
                       child: Column(
                         children: [
                           _info(context, l.infoService, provider?.displayName ?? s.providerId),

@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="8dp"
+    android:layout_marginTop="10dp"
     android:orientation="vertical">
 
     <LinearLayout
@@ -17,7 +17,7 @@
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="#F3F4F6"
+            android:textColor="#F1F3FB"
             android:textSize="12sp" />
 
         <TextView
@@ -32,7 +32,7 @@
         android:id="@+id/row_bar"
         style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="match_parent"
-        android:layout_height="6dp"
+        android:layout_height="7dp"
         android:layout_marginTop="3dp"
         android:max="100"
         android:progressDrawable="@drawable/tokenbar_widget_progress" />
@@ -44,6 +44,6 @@
         android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#9CA3AF"
+        android:textColor="#A5ADC6"
         android:textSize="10sp" />
 </LinearLayout>

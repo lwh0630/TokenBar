@@ -65,4 +65,46 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
   });
+
+  testWidgets('tray panel fits its estimated height and offers the footer actions', (tester) async {
+    final demo = DemoData(DateTime(2026, 10, 24, 12));
+    final height = TrayPanel.heightFor(demo.snapshots.values.toList());
+    tester.view.physicalSize = Size(420 * 2, height * 2);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+
+    final controller = AppController(
+      persistence: await Persistence.openDemo(),
+      historyStore: HistoryStore.demo(demo.history),
+      desktop: DesktopIntegration(),
+      notifier: Notifier(),
+      homeWidget: HomeWidgetBridge(),
+    )..initDemo(demo);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AppController>.value(
+        value: controller,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('en'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: const Scaffold(body: TrayPanel()),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Open TokenBar'), findsOneWidget);
+    expect(find.text('Quit'), findsOneWidget);
+    // The footer is pinned to the bottom edge of the panel.
+    expect(tester.getBottomLeft(find.text('Quit')).dy, lessThanOrEqualTo(height));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
 }

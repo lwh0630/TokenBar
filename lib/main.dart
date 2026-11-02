@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'app/app_shell.dart';
+import 'app/design/ambient_background.dart';
 import 'app/theme.dart';
 import 'demo/demo_data.dart';
 import 'l10n/app_locale.dart';
@@ -18,6 +19,7 @@ import 'state/app_controller.dart';
 import 'state/settings.dart';
 import 'state/update_controller.dart';
 import 'ui/tray_panel.dart';
+import 'ui/window_chrome.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -129,7 +131,13 @@ class _TokenBarAppState extends State<TokenBarApp> with WidgetsBindingObserver {
         valueListenable: desktop.panelMode,
         builder: (context, panel, _) => Stack(
           children: [
-            Offstage(offstage: panel, child: child),
+            Offstage(
+              offstage: panel,
+              // Pages are transparent: the ambient glow sits under the Navigator.
+              child: AmbientBackground(
+                child: WindowChrome(desktop: desktop, child: child ?? const SizedBox.shrink()),
+              ),
+            ),
             // The panel sits above the Navigator, so it has no Overlay of its own;
             // tooltips (and anything else that floats) need one.
             if (panel)

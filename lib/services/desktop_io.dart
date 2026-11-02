@@ -15,6 +15,7 @@ import 'package:window_manager/window_manager.dart';
 import '../l10n/app_localizations.dart';
 import '../ui/format.dart';
 import '../ui/tray_panel.dart';
+import 'window_edge.dart';
 
 /// System tray + window behaviour on Windows / macOS / Linux.
 class DesktopIntegration with TrayListener, WindowListener {
@@ -36,6 +37,45 @@ class DesktopIntegration with TrayListener, WindowListener {
   /// True while the single window is acting as the small tray panel
   /// (frameless, always on top, anchored to the tray icon).
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
+
+  /// The main window has no native title bar: TokenBar draws its own (see
+  /// `ui/window_chrome.dart`). macOS keeps its traffic lights, Windows / Linux get
+  /// custom caption buttons.
+  bool get hasCustomChrome => supported;
+
+  bool get drawsWindowButtons => supported && !Platform.isMacOS;
+
+  /// Linux draws no resize border for an undecorated window; Windows keeps an
+  /// invisible one (window_manager) and macOS is native.
+  bool get needsResizeEdges => supported && Platform.isLinux;
+
+  final ValueNotifier<bool> maximized = ValueNotifier(false);
+
+  Future<void> startDragging() => windowManager.startDragging();
+
+  Future<void> toggleMaximize() async {
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
+  Future<void> minimizeWindow() => windowManager.minimize();
+
+  /// Same as the system close button: hides to the tray or quits, per setting.
+  Future<void> closeWindow() => windowManager.close();
+
+  Future<void> startResizing(WindowEdge edge) => windowManager.startResizing(switch (edge) {
+    WindowEdge.top => ResizeEdge.top,
+    WindowEdge.left => ResizeEdge.left,
+    WindowEdge.right => ResizeEdge.right,
+    WindowEdge.bottom => ResizeEdge.bottom,
+    WindowEdge.topLeft => ResizeEdge.topLeft,
+    WindowEdge.topRight => ResizeEdge.topRight,
+    WindowEdge.bottomLeft => ResizeEdge.bottomLeft,
+    WindowEdge.bottomRight => ResizeEdge.bottomRight,
+  });
 
   static const panelWidth = 392.0;
 
@@ -71,11 +111,13 @@ class DesktopIntegration with TrayListener, WindowListener {
     });
 
     await windowManager.ensureInitialized();
-    const options = WindowOptions(
+    final options = WindowOptions(
       size: _mainSize,
       minimumSize: _mainMinSize,
       center: true,
       title: 'TokenBar',
+      titleBarStyle: TitleBarStyle.hidden,
+      windowButtonVisibility: Platform.isMacOS,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.show();
@@ -287,7 +329,10 @@ class DesktopIntegration with TrayListener, WindowListener {
         await windowManager.hide();
         await windowManager.setAlwaysOnTop(false);
         await windowManager.setSkipTaskbar(false);
-        await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+        await windowManager.setTitleBarStyle(
+          TitleBarStyle.hidden,
+          windowButtonVisibility: Platform.isMacOS,
+        );
         await windowManager.setResizable(true);
         await windowManager.setMinimumSize(_mainMinSize);
         final b = _mainBounds;
@@ -436,6 +481,12 @@ class DesktopIntegration with TrayListener, WindowListener {
         _quit();
     }
   }
+
+  @override
+  void onWindowMaximize() => maximized.value = true;
+
+  @override
+  void onWindowUnmaximize() => maximized.value = false;
 
   @override
   void onWindowBlur() {

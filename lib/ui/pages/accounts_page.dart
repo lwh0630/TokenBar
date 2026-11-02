@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
+import '../../app/design/glass.dart';
 import '../../demo/demo_data.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
@@ -25,10 +26,11 @@ class AccountsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l.navAccounts)),
       floatingActionButton: local
-          ? FloatingActionButton.extended(
+          ? GlassButton(
+              kind: GlassButtonKind.primary,
               onPressed: () => showAccountEditor(context),
-              icon: const Icon(Icons.add),
-              label: Text(l.addAccount),
+              icon: Icons.add,
+              label: l.addAccount,
             )
           : null,
       body: ListView(
@@ -67,7 +69,7 @@ class AccountsPage extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-            Card(
+            GlassCard(
               child: ReorderableListView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -124,7 +126,7 @@ class AccountsPage extends StatelessWidget {
                 ),
               )
             else
-              Card(
+              GlassCard(
                 child: Column(
                   children: [
                     for (final s in remote)
@@ -182,14 +184,23 @@ class AccountsPage extends StatelessWidget {
 
   static Future<bool> _confirmDelete(BuildContext context, String label) async {
     final l = AppLocalizations.of(context);
-    return await showDialog<bool>(
+    return await showGlassDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) => GlassDialog(
+            width: 420,
             title: Text(l.deleteAccountTitle),
             content: Text(l.deleteAccountBody(label)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.delete)),
+              GlassButton(
+                kind: GlassButtonKind.ghost,
+                onPressed: () => Navigator.pop(context, false),
+                label: l.cancel,
+              ),
+              GlassButton(
+                kind: GlassButtonKind.primary,
+                onPressed: () => Navigator.pop(context, true),
+                label: l.delete,
+              ),
             ],
           ),
         ) ??
@@ -205,30 +216,12 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
-            ),
-          ),
-          if (trailing != null)
-            Text(
-              trailing!,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-        ],
-      ),
-    );
+    return SectionHeader(text, trailing: trailing);
   }
 }
 
 Future<void> showAccountEditor(BuildContext context, {AccountConfig? existing}) {
-  return showDialog<void>(
+  return showGlassDialog<void>(
     context: context,
     builder: (_) => _AccountEditor(existing: existing),
   );
@@ -401,7 +394,8 @@ class _AccountEditorState extends State<_AccountEditor> {
     final theme = Theme.of(context);
     final editing = widget.existing != null;
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    return AlertDialog(
+    return GlassDialog(
+      width: 520,
       title: Text(editing ? l.editAccount : l.addAccount),
       content: SizedBox(
         width: 460,
@@ -471,8 +465,12 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
-        FilledButton(onPressed: _save, child: Text(l.save)),
+        GlassButton(
+          kind: GlassButtonKind.ghost,
+          onPressed: () => Navigator.pop(context),
+          label: l.cancel,
+        ),
+        GlassButton(kind: GlassButtonKind.primary, onPressed: _save, label: l.save),
       ],
     );
   }
@@ -512,7 +510,7 @@ class _AccountEditorState extends State<_AccountEditor> {
 
 /// Searchable list of providers usable on this device.
 Future<UsageProvider?> showProviderPicker(BuildContext context) {
-  return showDialog<UsageProvider>(context: context, builder: (_) => const _ProviderPicker());
+  return showGlassDialog<UsageProvider>(context: context, builder: (_) => const _ProviderPicker());
 }
 
 class _ProviderPicker extends StatefulWidget {
@@ -532,9 +530,9 @@ class _ProviderPickerState extends State<_ProviderPicker> {
     final items = availableProviders
         .where((p) => q.isEmpty || p.displayName.toLowerCase().contains(q) || p.id.contains(q))
         .toList();
-    return AlertDialog(
+    return GlassDialog(
+      width: 480,
       title: Text(l.chooseService),
-      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       content: SizedBox(
         width: 420,
         height: 520,
@@ -570,7 +568,13 @@ class _ProviderPickerState extends State<_ProviderPicker> {
           ],
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel))],
+      actions: [
+        GlassButton(
+          kind: GlassButtonKind.ghost,
+          onPressed: () => Navigator.pop(context),
+          label: l.cancel,
+        ),
+      ],
     );
   }
 }
