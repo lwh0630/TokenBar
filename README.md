@@ -36,12 +36,12 @@ English | [简体中文](README.zh-CN.md)
 **Desktop**
 
 <p align="center">
-  <img src="docs/screenshots/windows-dashboard.png" alt="TokenBar dashboard on Windows, light theme" width="49%">
-  <img src="docs/screenshots/windows-dashboard-dark.png" alt="TokenBar dashboard on Windows, dark theme" width="49%">
+  <img src="docs/screenshots/windows-dashboard.png" alt="Dashboard on Windows, light theme" width="49%">
+  <img src="docs/screenshots/windows-dashboard-dark.png" alt="Dashboard on Windows, dark theme" width="49%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/windows-settings-dark.png" alt="TokenBar settings with the background presets, dark theme" width="49%">
-  <img src="docs/screenshots/windows-history.png" alt="TokenBar stacked usage history on Windows" width="49%">
+  <img src="docs/screenshots/windows-settings.png" alt="Settings on Windows, light theme" width="49%">
+  <img src="docs/screenshots/windows-settings-dark.png" alt="Settings on Windows, dark theme" width="49%">
 </p>
 <p align="center">
   <img src="docs/screenshots/windows-tray-panel.png" alt="Tray panel, light theme" width="26%">
@@ -51,10 +51,10 @@ English | [简体中文](README.zh-CN.md)
 **Mobile**
 
 <p align="center">
-  <img src="docs/screenshots/android-dashboard.png" alt="Dashboard on Android" width="23%">
-  <img src="docs/screenshots/android-settings.png" alt="Settings on Android" width="23%">
-  <img src="docs/screenshots/android-detail.png" alt="Account detail on Android" width="23%">
-  <img src="docs/screenshots/android-history.png" alt="Usage history on Android" width="23%">
+  <img src="docs/screenshots/android-dashboard.png" alt="Dashboard on Android, light theme" width="23%">
+  <img src="docs/screenshots/android-dashboard-dark.png" alt="Dashboard on Android, dark theme" width="23%">
+  <img src="docs/screenshots/android-settings.png" alt="Settings on Android, light theme" width="23%">
+  <img src="docs/screenshots/android-settings-dark.png" alt="Settings on Android, dark theme" width="23%">
 </p>
 
 > The app interface is available in Simplified Chinese and English. Switch in **Settings → Language**; the default follows your system language (Chinese systems get Chinese, everything else gets English). Text that comes from the provider integrations (setup hints, some field names and error messages) is still Chinese for now, see the [roadmap](#roadmap). Provider names, plan names and numbers are shown as the providers report them.

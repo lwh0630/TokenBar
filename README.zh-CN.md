@@ -40,8 +40,8 @@
   <img src="docs/screenshots/zh/windows-dashboard-dark.png" alt="Windows 上的额度总览（深色）" width="49%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/zh/windows-settings-dark.png" alt="设置页与背景预设（深色）" width="49%">
-  <img src="docs/screenshots/zh/windows-history.png" alt="Windows 上的堆叠式使用历史" width="49%">
+  <img src="docs/screenshots/zh/windows-settings.png" alt="Windows 上的设置页（浅色）" width="49%">
+  <img src="docs/screenshots/zh/windows-settings-dark.png" alt="Windows 上的设置页（深色）" width="49%">
 </p>
 <p align="center">
   <img src="docs/screenshots/zh/windows-tray-panel.png" alt="托盘小面板" width="26%">
@@ -50,10 +50,10 @@
 **移动端**
 
 <p align="center">
-  <img src="docs/screenshots/zh/android-dashboard.png" alt="Android 额度总览" width="23%">
-  <img src="docs/screenshots/zh/android-settings.png" alt="Android 设置页" width="23%">
-  <img src="docs/screenshots/zh/android-detail.png" alt="Android 账户详情" width="23%">
-  <img src="docs/screenshots/zh/android-history.png" alt="Android 使用历史" width="23%">
+  <img src="docs/screenshots/zh/android-dashboard.png" alt="Android 额度总览（浅色）" width="23%">
+  <img src="docs/screenshots/zh/android-dashboard-dark.png" alt="Android 额度总览（深色）" width="23%">
+  <img src="docs/screenshots/zh/android-settings.png" alt="Android 设置页（浅色）" width="23%">
+  <img src="docs/screenshots/zh/android-settings-dark.png" alt="Android 设置页（深色）" width="23%">
 </p>
 
 ## 功能
