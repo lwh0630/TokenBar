@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'app/app_shell.dart';
 import 'app/app_background.dart';
 import 'app/design/glass.dart' show GlassResizeTracker;
+import 'app/semantics_guard.dart';
 import 'app/theme.dart';
 import 'demo/demo_data.dart';
 import 'l10n/app_locale.dart';
@@ -130,29 +131,34 @@ class _TokenBarAppState extends State<TokenBarApp> with WidgetsBindingObserver {
       // The same window doubles as the tray panel. The main UI (navigator, pages, background)
       // is only mounted while the full window is on screen: a window hidden to the tray, or
       // showing the small panel, must not keep a whole widget tree and its GPU layers alive.
-      builder: (context, child) => GlassResizeTracker(
-        child: AnimatedBuilder(
-          animation: Listenable.merge([desktop.panelMode, desktop.uiSuspended]),
-          builder: (context, _) {
-            final panel = desktop.panelMode.value;
-            return Stack(
-              children: [
-                if (!panel && !desktop.uiSuspended.value)
-                  // Pages are transparent: the ambient glow sits under the Navigator.
-                  AppBackground(
-                    child: WindowChrome(desktop: desktop, child: child ?? const SizedBox.shrink()),
-                  ),
-                // The panel has no Overlay of its own; tooltips (and anything else that
-                // floats) need one.
-                if (panel)
-                  Positioned.fill(
-                    child: Overlay(
-                      initialEntries: [OverlayEntry(builder: (_) => const TrayPanel())],
+      builder: (context, child) => SemanticsGuard(
+        child: GlassResizeTracker(
+          child: AnimatedBuilder(
+            animation: Listenable.merge([desktop.panelMode, desktop.uiSuspended]),
+            builder: (context, _) {
+              final panel = desktop.panelMode.value;
+              return Stack(
+                children: [
+                  if (!panel && !desktop.uiSuspended.value)
+                    // Pages are transparent: the ambient glow sits under the Navigator.
+                    AppBackground(
+                      child: WindowChrome(
+                        desktop: desktop,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
-                  ),
-              ],
-            );
-          },
+                  // The panel has no Overlay of its own; tooltips (and anything else that
+                  // floats) need one.
+                  if (panel)
+                    Positioned.fill(
+                      child: Overlay(
+                        initialEntries: [OverlayEntry(builder: (_) => const TrayPanel())],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       home: const AppShell(),
