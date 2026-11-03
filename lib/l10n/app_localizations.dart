@@ -1065,6 +1065,78 @@ abstract class AppLocalizations {
   /// **'前往下载'**
   String get goToDownload;
 
+  /// No description provided for @updateNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即更新'**
+  String get updateNow;
+
+  /// No description provided for @updateDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get updateDone;
+
+  /// No description provided for @openReleasePage.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开发布页'**
+  String get openReleasePage;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateDownloadingPercent.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载 {percent}%'**
+  String updateDownloadingPercent(int percent);
+
+  /// No description provided for @updateVerifying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在校验文件…'**
+  String get updateVerifying;
+
+  /// No description provided for @updateInstalling.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在启动安装…'**
+  String get updateInstalling;
+
+  /// No description provided for @updateFailedNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败，请检查网络后重试。'**
+  String get updateFailedNetwork;
+
+  /// No description provided for @updateFailedChecksum.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件校验失败，已丢弃下载内容。请重试，或前往发布页手动下载。'**
+  String get updateFailedChecksum;
+
+  /// No description provided for @updateFailedPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在系统设置中允许 TokenBar 安装应用，然后回到这里重试。'**
+  String get updateFailedPermission;
+
+  /// No description provided for @updateFailedLaunch.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法启动安装程序，请前往发布页手动下载。'**
+  String get updateFailedLaunch;
+
+  /// No description provided for @updateSavedTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载并通过校验：{path}\n请手动完成安装。'**
+  String updateSavedTo(String path);
+
   /// No description provided for @usageNote.
   ///
   /// In zh, this message translates to:

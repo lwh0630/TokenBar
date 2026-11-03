@@ -559,6 +559,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goToDownload => '前往下载';
 
   @override
+  String get updateNow => '立即更新';
+
+  @override
+  String get updateDone => '完成';
+
+  @override
+  String get openReleasePage => '打开发布页';
+
+  @override
+  String get updateDownloading => '正在下载…';
+
+  @override
+  String updateDownloadingPercent(int percent) {
+    return '正在下载 $percent%';
+  }
+
+  @override
+  String get updateVerifying => '正在校验文件…';
+
+  @override
+  String get updateInstalling => '正在启动安装…';
+
+  @override
+  String get updateFailedNetwork => '下载失败，请检查网络后重试。';
+
+  @override
+  String get updateFailedChecksum => '文件校验失败，已丢弃下载内容。请重试，或前往发布页手动下载。';
+
+  @override
+  String get updateFailedPermission => '请在系统设置中允许 TokenBar 安装应用，然后回到这里重试。';
+
+  @override
+  String get updateFailedLaunch => '无法启动安装程序，请前往发布页手动下载。';
+
+  @override
+  String updateSavedTo(String path) {
+    return '已下载并通过校验：$path\n请手动完成安装。';
+  }
+
+  @override
   String get usageNote => '用量为各额度窗口在该时段内新增的已用百分比；不同窗口可能统计同一批请求，可用上方标签选择要叠加的项。';
 
   @override

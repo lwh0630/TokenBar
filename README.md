@@ -71,7 +71,7 @@ English | [简体中文](README.zh-CN.md)
 | **Languages** | Simplified Chinese and English. Choose in **Settings → Language**; defaults to the system language. |
 | **Light and dark themes** | Follows the system or set manually. |
 | **Phone widgets** | Native Android home-screen widget. iOS WidgetKit sources are included but unverified. |
-| **Update check** | Looks for a newer GitHub release at launch (can be turned off) or on demand. See [Updates](#updates). |
+| **Update check** | Looks for a newer GitHub release at launch (can be turned off) or on demand, and can download and install it in the app. See [Updates](#updates). |
 | **Optional sync server** | Self-hosted. Push snapshots from your PC, view them on your phone or in the browser. |
 | **CLI** | `tokenbar usage` prints the same data in a terminal or as JSON. |
 
@@ -276,7 +276,16 @@ Cursor and Codex can additionally be viewed **per model** as a stacked bar chart
 
 ## Updates
 
-TokenBar checks the latest [GitHub release](https://github.com/lwh0630/TokenBar/releases) once at launch and whenever you press **Settings → About → Check for updates**. When a newer version exists it shows the release notes and opens the release page so you can download it. You can turn the launch check off, or skip a specific version.
+TokenBar checks the latest [GitHub release](https://github.com/lwh0630/TokenBar/releases) once at launch and whenever you press **Settings → About → Check for updates**. When a newer version exists it shows the release notes. Press **Update now** to download the installer for your platform inside the app; nothing is downloaded until you do. You can turn the launch check off, or skip a specific version.
+
+The download is only taken from this repository's GitHub release and is checked against the release's `SHA256SUMS.txt` before it is used (a mismatch deletes the file). The checksum proves the file is intact, not who built it: the Windows installer and the macOS app are not code-signed.
+
+| Platform | What "Update now" does |
+|---|---|
+| Windows (installed with the setup) | Runs the new installer silently, closes TokenBar and starts the new version. A portable copy only opens the release page. |
+| Android | Hands the APK to the system installer (the first time, Android asks you to allow TokenBar to install apps). |
+| macOS / Linux | Saves the dmg / archive to your Downloads folder, verifies it and opens it; you finish the install. |
+| iOS / Web | Opens the release page. |
 
 The check sends one anonymous `GET` to `api.github.com` with the app version in the `User-Agent`. Drafts and pre-releases are ignored. TokenBar never downloads or installs anything by itself.
 

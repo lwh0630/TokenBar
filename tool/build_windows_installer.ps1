@@ -101,6 +101,20 @@ foreach ($f in 'token_bar.exe', 'flutter_windows.dll', 'data/app.so', 'unins000.
 }
 Write-Host 'Install OK'
 
+# The in-app updater installs over a running install with /relaunch=1 and expects the new version to
+# start by itself. Do an upgrade-style run here and wait for the process (it is stopped right away).
+$p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+  '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=$target", '/NOICONS', '/relaunch=1'
+)
+if ($p.ExitCode -ne 0) { throw "Relaunch install exited with code $($p.ExitCode)" }
+$started = $false
+for ($i = 0; $i -lt 40 -and -not $started; $i++) {
+  if (Get-Process -Name 'token_bar' -ErrorAction SilentlyContinue) { $started = $true } else { Start-Sleep -Milliseconds 250 }
+}
+Get-Process -Name 'token_bar' -ErrorAction SilentlyContinue | Stop-Process -Force
+if (-not $started) { throw '/relaunch=1 did not start the installed app' }
+Write-Host 'Relaunch OK'
+
 $u = Start-Process -FilePath (Join-Path $target 'unins000.exe') -Wait -PassThru `
   -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
 if ($u.ExitCode -ne 0) { throw "Uninstaller exited with code $($u.ExitCode)" }

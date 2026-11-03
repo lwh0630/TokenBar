@@ -169,6 +169,24 @@
   "currentVersion": "Current version {version}",
   "skipThisVersion": "Skip this version",
   "goToDownload": "Download",
+  "updateNow": "Update now",
+  "updateDone": "Done",
+  "openReleasePage": "Open release page",
+  "updateDownloading": "Downloading…",
+  "updateDownloadingPercent": "Downloading {percent}%",
+  "@updateDownloadingPercent": {
+    "placeholders": { "percent": { "type": "int" } }
+  },
+  "updateVerifying": "Verifying the file…",
+  "updateInstalling": "Starting the installer…",
+  "updateFailedNetwork": "Download failed. Check your connection and try again.",
+  "updateFailedChecksum": "The file did not match its checksum and was discarded. Try again, or download it from the release page.",
+  "updateFailedPermission": "Allow TokenBar to install apps in the system settings, then come back and try again.",
+  "updateFailedLaunch": "Could not start the installer. Please download it from the release page.",
+  "updateSavedTo": "Downloaded and verified: {path}\nFinish the installation by hand.",
+  "@updateSavedTo": {
+    "placeholders": { "path": { "type": "String" } }
+  },
 
   "usageNote": "Usage is the percentage of each quota window used during that period. Different windows may count the same requests; pick the series to stack with the chips above.",
   "historyNotEnough": "Not enough history yet; it builds up with each refresh",

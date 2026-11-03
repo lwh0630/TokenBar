@@ -90,3 +90,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; The in-app updater runs this installer silently with /relaunch=1 after quitting the app, so the new
+; version has to be started here (the normal post-install checkbox is skipped when silent).
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: RelaunchRequested
+
+[Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;

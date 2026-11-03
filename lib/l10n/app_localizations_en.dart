@@ -587,6 +587,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goToDownload => 'Download';
 
   @override
+  String get updateNow => 'Update now';
+
+  @override
+  String get updateDone => 'Done';
+
+  @override
+  String get openReleasePage => 'Open release page';
+
+  @override
+  String get updateDownloading => 'Downloading…';
+
+  @override
+  String updateDownloadingPercent(int percent) {
+    return 'Downloading $percent%';
+  }
+
+  @override
+  String get updateVerifying => 'Verifying the file…';
+
+  @override
+  String get updateInstalling => 'Starting the installer…';
+
+  @override
+  String get updateFailedNetwork => 'Download failed. Check your connection and try again.';
+
+  @override
+  String get updateFailedChecksum =>
+      'The file did not match its checksum and was discarded. Try again, or download it from the release page.';
+
+  @override
+  String get updateFailedPermission =>
+      'Allow TokenBar to install apps in the system settings, then come back and try again.';
+
+  @override
+  String get updateFailedLaunch =>
+      'Could not start the installer. Please download it from the release page.';
+
+  @override
+  String updateSavedTo(String path) {
+    return 'Downloaded and verified: $path\nFinish the installation by hand.';
+  }
+
+  @override
   String get usageNote =>
       'Usage is the percentage of each quota window used during that period. Different windows may count the same requests; pick the series to stack with the chips above.';
 

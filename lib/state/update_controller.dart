@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/update/app_version.dart';
+import '../services/update/update_installer.dart';
 import '../services/update/update_service.dart';
 import 'settings.dart';
 
@@ -17,13 +18,16 @@ class UpdateController extends ChangeNotifier {
     required this.readSettings,
     required this.saveSettings,
     UpdateService? service,
+    UpdateInstaller? installer,
     Future<String> Function()? versionLoader,
   }) : _service = service ?? UpdateService(),
+       _installer = installer ?? createUpdateInstaller(),
        _versionLoader = versionLoader ?? _packageVersion;
 
   final AppSettings Function() readSettings;
   final Future<void> Function(AppSettings) saveSettings;
   final UpdateService _service;
+  final UpdateInstaller _installer;
   final Future<String> Function() _versionLoader;
 
   UpdateStatus status = UpdateStatus.idle;
@@ -59,6 +63,64 @@ class UpdateController extends ChangeNotifier {
     _promptPending = false;
     return release;
   }
+
+  // ---------------------------------------------------------------- installing
+
+  UpdateInstallStage? installStage;
+
+  /// 0..1 while downloading; null when the size is not known (or nothing is running).
+  double? installProgress;
+
+  /// Code of the last failed install (see [UpdateInstallException]); null otherwise.
+  String? installErrorCode;
+
+  UpdateCancelToken? _cancel;
+
+  bool get installing => _cancel != null;
+
+  /// Whether the available release can be downloaded and installed from inside the app on this
+  /// device (otherwise the dialog just opens the release page).
+  bool get canInstall => release != null && _installer.canInstall(release!);
+
+  /// Downloads, verifies and installs the available release. Returns how it ended, or null
+  /// when it failed (see [installErrorCode]) or was cancelled.
+  Future<UpdateInstallOutcome?> install() async {
+    final r = release;
+    if (r == null || installing) return null;
+    final token = _cancel = UpdateCancelToken();
+    installErrorCode = null;
+    installStage = UpdateInstallStage.downloading;
+    installProgress = null;
+    _notify();
+    try {
+      return await _installer.install(
+        r,
+        cancel: token,
+        onStage: (s) {
+          installStage = s;
+          _notify();
+        },
+        onProgress: (p) {
+          installProgress = p;
+          _notify();
+        },
+      );
+    } on UpdateInstallException catch (e) {
+      if (e.code != 'cancelled') installErrorCode = e.code;
+      return null;
+    } on Object {
+      installErrorCode = 'launch';
+      return null;
+    } finally {
+      _cancel = null;
+      installStage = null;
+      installProgress = null;
+      _notify();
+    }
+  }
+
+  /// Stops a running download (the next chunk notices).
+  void cancelInstall() => _cancel?.cancel();
 
   /// Don't offer [r] again automatically (a newer release will still be offered).
   Future<void> skip(ReleaseInfo r) => saveSettings(readSettings().copyWith(skippedVersion: r.tag));
@@ -98,6 +160,7 @@ class UpdateController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _cancel?.cancel();
     _service.close();
     super.dispose();
   }

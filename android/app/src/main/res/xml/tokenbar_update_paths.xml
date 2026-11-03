@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- path_provider's temporary directory is the app cache dir; the updater downloads into it. -->
+    <cache-path name="updates" path="tokenbar-update/" />
+</paths>

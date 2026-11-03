@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../app_info.dart';
 import 'app_version.dart';
+import 'release_assets.dart';
 
 /// A published GitHub release.
 class ReleaseInfo {
@@ -13,6 +14,7 @@ class ReleaseInfo {
     required this.version,
     required this.notes,
     required this.pageUrl,
+    this.assets = const [],
   });
 
   /// e.g. `v1.2.0`.
@@ -24,6 +26,9 @@ class ReleaseInfo {
 
   /// The release page on github.com (where the user downloads the build).
   final Uri pageUrl;
+
+  /// The release's files (only trusted GitHub download URLs are kept).
+  final List<ReleaseAsset> assets;
 }
 
 /// A failed update check. [code] is `network`, `rate_limit` or `bad_response`.
@@ -74,7 +79,24 @@ class UpdateService {
       version: version,
       notes: body is String ? body.trim() : '',
       pageUrl: page,
+      assets: _parseAssets(json['assets']),
     );
+  }
+
+  static List<ReleaseAsset> _parseAssets(Object? json) {
+    if (json is! List) return const [];
+    final out = <ReleaseAsset>[];
+    for (final a in json) {
+      if (a is! Map) continue;
+      final name = a['name'];
+      final url = a['browser_download_url'];
+      if (name is! String || url is! String) continue;
+      final uri = Uri.tryParse(url);
+      if (uri == null || !isTrustedAssetUrl(uri)) continue;
+      final size = a['size'];
+      out.add(ReleaseAsset(name: name, url: uri, size: size is int ? size : 0));
+    }
+    return out;
   }
 
   /// The latest published release, or `null` when the repository has none yet.

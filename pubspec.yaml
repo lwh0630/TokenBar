@@ -26,6 +26,7 @@ dependencies:
   launch_at_startup: ^0.5.1
   home_widget: ^0.10.0
   http: ^1.6.0
+  crypto: ^3.0.7
   flutter_localizations:
     sdk: flutter
   screen_retriever: ^0.2.2
