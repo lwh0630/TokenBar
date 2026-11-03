@@ -103,9 +103,10 @@ Write-Host 'Install OK'
 
 # The in-app updater installs over a running install with /relaunch=1 and expects the new version to
 # start by itself. Do an upgrade-style run here and wait for the process (it is stopped right away).
-$p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
-  '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=$target", '/NOICONS', '/relaunch=1'
-)
+# Start-Process -Wait would also wait for the relaunched app (a descendant) and hang, so wait for
+# the installer process alone.
+$p = [System.Diagnostics.Process]::Start($setup, '/SILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER "/DIR=' + $target + '" /NOICONS /relaunch=1')
+if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Relaunch install did not finish within 2 minutes' }
 if ($p.ExitCode -ne 0) { throw "Relaunch install exited with code $($p.ExitCode)" }
 $started = $false
 for ($i = 0; $i -lt 40 -and -not $started; $i++) {
