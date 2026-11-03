@@ -45,9 +45,9 @@ concurrency:
 
 env:
   # Keep these in sync with ci.yml and AGENTS.md.
-  FLUTTER_VERSION: "3.47.7"
-  # Commit of the Flutter 3.47.7 tag; used to build the Windows arm64 SDK from source.
-  FLUTTER_COMMIT: "abaf9c523780a608bd46686fd5e53740a07077f8"
+  FLUTTER_VERSION: "3.47.9"
+  # Commit of the Flutter 3.47.9 tag; used to build the Windows arm64 SDK from source.
+  FLUTTER_COMMIT: "c197ca5199e9ee5661e865596c9c07294dfab51c"
   JAVA_VERSION: "17"
   # SHA-256 fingerprint of the release signing certificate (public information).
   # Every APK must be signed with exactly this certificate. Changing it is a

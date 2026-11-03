@@ -318,7 +318,7 @@ On the PC: **Settings → Server sync → Push local data**, enter the server UR
 
 ## Build from source
 
-Requirements: Flutter 3.47.7 (Dart 3.13.5). For Android also JDK 17 and the Android SDK; for Windows, Visual Studio 2022 with the *Desktop development with C++* workload.
+Requirements: Flutter 3.47.9 (Dart 3.13.7). For Android also JDK 17 and the Android SDK; for Windows, Visual Studio 2022 with the *Desktop development with C++* workload.
 
 ```bash
 git clone https://github.com/lwh0630/TokenBar.git

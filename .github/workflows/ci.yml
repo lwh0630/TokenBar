@@ -21,11 +21,11 @@ concurrency:
 
 env:
   # Keep these in sync with release.yml and AGENTS.md.
-  #   Flutter 3.47.7 ships Dart 3.13.5, which satisfies pubspec.yaml (sdk: ^3.13.5).
+  #   Flutter 3.47.9 ships Dart 3.13.7, which satisfies pubspec.yaml (sdk: ^3.13.5).
   #   JDK 17 matches the Java 17 source/target in android/app/build.gradle.kts.
-  FLUTTER_VERSION: "3.47.7"
-  # Commit of the Flutter 3.47.7 tag; used to build the Windows arm64 SDK from source.
-  FLUTTER_COMMIT: "abaf9c523780a608bd46686fd5e53740a07077f8"
+  FLUTTER_VERSION: "3.47.9"
+  # Commit of the Flutter 3.47.9 tag; used to build the Windows arm64 SDK from source.
+  FLUTTER_COMMIT: "c197ca5199e9ee5661e865596c9c07294dfab51c"
   JAVA_VERSION: "17"
 
 jobs:

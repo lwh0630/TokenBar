@@ -116,7 +116,11 @@ All release artifacts are built by GitHub Actions. The Release is first created 
 5. Leave the draft as a draft and tell the user to test it (especially the macOS dmg, the Windows installer and upgrading an installed Android app); publish only after the user confirms: `gh release edit vX.Y.Z --draft=false` (or click Publish on the web page).
 6. Version numbers: `version` in `pubspec.yaml` is only a development default; CI overrides `--build-name` with the tag, and `--build-number` is `github.run_number`. The in-app "Check for updates" reads `releases/latest` (ignoring drafts / pre-releases).
 
-Upgrading the Flutter version: change `FLUTTER_VERSION` and `FLUTTER_COMMIT` (the full commit of that tag) in `ci.yml` and `release.yml` together, and update the README badge / build notes. Pin every third-party Action to a full commit SHA (put the tag in a comment).
+Upgrading the Flutter version: change `FLUTTER_VERSION` and `FLUTTER_COMMIT` (the full commit of that tag, check with `git ls-remote --tags https://github.com/flutter/flutter.git <tag>`) in `ci.yml` and `release.yml` together, plus `ARG FLUTTER_VERSION` in the `Dockerfile`, and update the README badge / build notes (both languages). `flutter upgrade` also moves `pubspec.lock` within the constraints; review and commit it with the upgrade. Pin every third-party Action to a full commit SHA (put the tag in a comment). Currently on Flutter 3.47.9 (Dart 3.13.7), the latest stable on 2026-11-03.
+
+**Known engine bugs to re-check on every Flutter upgrade** (read the release notes / `CHANGELOG.md` of the new version and the linked issues; remove the workaround once fixed, and test it on a real Windows machine with an input method or screen reader running):
+
+- Windows accessibility crash (`AccessibilityBridge::CreateRemoveReparentedNodesUpdate`, flutter/flutter#175041, fix proposal #190903): still present in 3.47.9. Workaround: `SemanticsGuard` (see "Pitfalls" → "Windows accessibility crash"). After an upgrade that fixes it, delete `lib/app/semantics_guard.dart`, its test and the wrapper in `main.dart`, and restore screen-reader support on Windows.
 
 ## Screenshots (for the README)
 

@@ -316,7 +316,7 @@ TOKENBAR_TOKEN=change-me build/server/bundle/bin/tokenbar serve --web build/web 
 
 ## 从源码构建
 
-环境：Flutter 3.47.7（Dart 3.13.5）。Android 另需 JDK 17 和 Android SDK；Windows 需要安装了「使用 C++ 的桌面开发」工作负载的 Visual Studio 2022。
+环境：Flutter 3.47.9（Dart 3.13.7）。Android 另需 JDK 17 和 Android SDK；Windows 需要安装了「使用 C++ 的桌面开发」工作负载的 Visual Studio 2022。
 
 ```bash
 git clone https://github.com/lwh0630/TokenBar.git

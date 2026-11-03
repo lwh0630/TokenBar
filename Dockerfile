@@ -3,7 +3,7 @@
 #   docker build -t tokenbar .
 #   docker run -d -p 8787:8787 -v tokenbar-data:/data -e TOKENBAR_TOKEN=change-me tokenbar
 
-ARG FLUTTER_VERSION=3.47.7
+ARG FLUTTER_VERSION=3.47.9
 
 FROM ghcr.io/cirruslabs/flutter:${FLUTTER_VERSION} AS build
 WORKDIR /src
