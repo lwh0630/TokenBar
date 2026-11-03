@@ -44,7 +44,8 @@
   <img src="docs/screenshots/zh/windows-settings-dark.png" alt="Windows 上的设置页（深色）" width="49%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/zh/windows-tray-panel.png" alt="托盘小面板" width="26%">
+  <img src="docs/screenshots/zh/windows-tray-panel.png" alt="托盘小面板（浅色）" width="26%">
+  <img src="docs/screenshots/zh/windows-tray-panel-dark.png" alt="托盘小面板（深色）" width="26%">
 </p>
 
 **移动端**
