@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:token_bar/app/app_shell.dart';
 import 'package:token_bar/app/design/ambient_background.dart';
+import 'package:token_bar/app/design/glass.dart';
 import 'package:token_bar/app/design/reveal.dart';
 import 'package:token_bar/app/theme.dart';
 import 'package:token_bar/demo/demo_data.dart';
@@ -19,7 +20,11 @@ import 'package:token_bar/state/update_controller.dart';
 import 'package:token_bar/ui/pages/account_detail_page.dart';
 import 'package:token_bar/ui/widgets/history_chart.dart';
 
-Future<(AppController, UpdateController)> _pump(WidgetTester tester, Size size) async {
+Future<(AppController, UpdateController)> _pump(
+  WidgetTester tester,
+  Size size, {
+  double cardBlur = 0,
+}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -52,6 +57,8 @@ Future<(AppController, UpdateController)> _pump(WidgetTester tester, Size size) 
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
+        // Above the Navigator, like AppBackground in the real app.
+        builder: (context, child) => GlassCardBlur(blur: cardBlur, child: child!),
         home: const AppShell(),
       ),
     ),
@@ -202,13 +209,21 @@ void main() {
     await _dispose(tester, controller);
   });
 
-  testWidgets('glass blur is suspended only while a page transition runs', (tester) async {
+  testWidgets('gradient backgrounds use no backdrop blur at all', (tester) async {
     final (controller, _) = await _pump(tester, const Size(1200, 800));
+    // Cards and the sidebar are plain translucent fills: a blur pass per card is what
+    // made the app slow and memory-hungry, and over a smooth gradient it shows nothing.
+    expect(find.byType(BackdropFilter), findsNothing);
+    await _dispose(tester, controller);
+  });
+
+  testWidgets('glass blur is suspended only while a page transition runs', (tester) async {
+    final (controller, _) = await _pump(tester, const Size(1200, 800), cardBlur: 16);
 
     bool anyBlur() =>
         tester.widgetList<BackdropFilter>(find.byType(BackdropFilter)).any((f) => f.enabled);
 
-    expect(anyBlur(), isTrue); // at rest the glass blurs
+    expect(anyBlur(), isTrue); // over a picture the glass blurs at rest
 
     await tester.tap(find.text('Codex').first);
     await tester.pump();

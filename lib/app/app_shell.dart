@@ -190,6 +190,10 @@ class _Sidebar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(Sp.x3, Sp.x1, 0, Sp.x3),
         child: GlassSurface(
           radius: Rd.lg,
+          // The sidebar sits on the smooth gradient, where a backdrop blur changes next to
+          // nothing but costs an offscreen pass (and a re-blur on every drift step); it
+          // only blurs over a picture background.
+          blur: GlassCardBlur.of(context) > 0 ? 26 : 0,
           padding: const EdgeInsets.all(Sp.x2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

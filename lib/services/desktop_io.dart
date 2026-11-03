@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:ui' show Offset, Rect, Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
-import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
+import 'package:flutter/widgets.dart' show AppLifecycleState, PaintingBinding, WidgetsBinding;
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_retriever/screen_retriever.dart';
@@ -38,6 +40,12 @@ class DesktopIntegration with TrayListener, WindowListener {
   /// True while the single window is acting as the small tray panel
   /// (frameless, always on top, anchored to the tray icon).
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
+
+  /// True while the main UI (Navigator, pages, background, title bar) is unmounted because the
+  /// window is hidden to the tray. A hidden window used to keep its whole widget tree, layers and
+  /// GPU caches alive (hundreds of MB); unmounting frees them, and showing the window rebuilds the
+  /// tree in a frame or two (navigation state starts over on the dashboard).
+  final ValueNotifier<bool> uiSuspended = ValueNotifier(false);
 
   /// True while the panel window really has rounded corners (Windows 11), so the
   /// panel draws a rounded outline that matches; false keeps the square outline.
@@ -74,6 +82,57 @@ class DesktopIntegration with TrayListener, WindowListener {
     WidgetsBinding.instance.handleAppLifecycleStateChanged(
       on ? AppLifecycleState.resumed : AppLifecycleState.hidden,
     );
+  }
+
+  /// Hides-to-tray counterpart of [_setRendering]: unmounts the main UI first (and lets one
+  /// empty frame go through, so the engine drops the layers), then stops frame production.
+  Future<void> _suspendRendering() async {
+    if (!uiSuspended.value) {
+      uiSuspended.value = true;
+      try {
+        await WidgetsBinding.instance.endOfFrame.timeout(const Duration(milliseconds: 800));
+      } catch (_) {
+        // No frame came (already hidden); the next resume rebuilds anyway.
+      }
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+    }
+    _setRendering(false);
+    _trimMemoryLater();
+  }
+
+  Timer? _trimTimer;
+
+  /// Windows: a moment after the window went away, ask the OS to page out everything the process
+  /// is not touching (EmptyWorkingSet, what browsers do for background tabs). The engine keeps
+  /// hundreds of MB of GPU caches and glyph atlases resident that a hidden window never reads, so
+  /// the working set (the number Task Manager shows) drops to a few tens of MB; whatever is needed
+  /// again is faulted back in on demand.
+  void _trimMemoryLater() {
+    if (!Platform.isWindows) return;
+    _trimTimer?.cancel();
+    _trimTimer = Timer(const Duration(seconds: 2), () {
+      if (!uiSuspended.value) return; // shown again in the meantime
+      try {
+        final emptyWorkingSet = ffi.DynamicLibrary.open(
+          'kernel32.dll',
+        ).lookupFunction<ffi.Int32 Function(ffi.IntPtr), int Function(int)>('K32EmptyWorkingSet');
+        emptyWorkingSet(-1); // GetCurrentProcess() is the pseudo handle -1
+      } catch (e) {
+        debugPrint('trim working set failed: ');
+      }
+    });
+  }
+
+  /// Mounts the main UI again and waits for its first frame, so the window never shows up empty.
+  Future<void> _resumeUi() async {
+    _setRendering(true);
+    if (!uiSuspended.value) return;
+    uiSuspended.value = false;
+    try {
+      await WidgetsBinding.instance.endOfFrame.timeout(const Duration(milliseconds: 800));
+    } catch (_) {}
   }
 
   Future<void> startDragging() => windowManager.startDragging();
@@ -369,7 +428,7 @@ class DesktopIntegration with TrayListener, WindowListener {
           await windowManager.center();
         }
       }
-      _setRendering(true);
+      await _resumeUi();
       if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.show();
       await windowManager.focus();
@@ -424,7 +483,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   /// Hides the full window to the tray (same as its close button with "minimize to tray").
   Future<void> hideMainWindow() async {
     await windowManager.hide();
-    _setRendering(false);
+    await _suspendRendering();
   }
 
   Future<void> showPanel() async {
@@ -475,7 +534,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   Future<void> hidePanel() async {
     _panelHiddenAt = DateTime.now();
     await windowManager.hide();
-    _setRendering(false);
+    await _suspendRendering();
   }
 
   /// Top-left corner for the panel: centred on the cursor (which is over the
@@ -571,8 +630,12 @@ class DesktopIntegration with TrayListener, WindowListener {
   @override
   void onWindowFocus() {
     focused.value = true;
-    // A focused window is on screen, whatever path showed it.
-    _setRendering(true);
+    // A focused window is on screen, whatever path showed it (the panel never needs the main UI).
+    if (panelMode.value) {
+      _setRendering(true);
+    } else {
+      _resumeUi();
+    }
   }
 
   @override
@@ -593,7 +656,7 @@ class DesktopIntegration with TrayListener, WindowListener {
     if (_quitting) return;
     if (_minimizeToTray && _trayReady) {
       await windowManager.hide();
-      _setRendering(false);
+      await _suspendRendering();
     } else {
       await _quit();
     }

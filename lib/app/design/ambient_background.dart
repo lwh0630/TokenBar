@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,15 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
   Duration _banked = Duration.zero; // drift time accumulated before the last pause
   bool _reduceMotion = false;
   bool _visible = true;
+  _BlobSprites? _sprites;
+
+  /// The blobs are rendered once per palette (see [_BlobSprites]); a drift step only draws them.
+  _BlobSprites _spritesFor(BackgroundPalette palette, bool isDark) {
+    final current = _sprites;
+    if (current != null && current.palette == palette && current.isDark == isDark) return current;
+    current?.dispose();
+    return _sprites = _BlobSprites.render(palette, isDark);
+  }
 
   void _onTick(Timer _) {
     final ms = (_banked + _running.elapsed).inMilliseconds;
@@ -114,6 +124,7 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _phase.dispose();
+    _sprites?.dispose();
     super.dispose();
   }
 
@@ -121,6 +132,7 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
   Widget build(BuildContext context) {
     final colors = context.glass;
     final palette = BackgroundPalette.of(widget.style, colors);
+    final sprites = _spritesFor(palette, colors.isDark);
     // The background lives in its own layer so a drift step never repaints the app.
     final Widget background = widget._showsImage
         ? Stack(
@@ -133,7 +145,7 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
                 gaplessPlayback: true,
                 // A missing / unreadable file falls back to the gradient.
                 errorBuilder: (_, _, _) => CustomPaint(
-                  painter: _AmbientPainter(palette, colors.isDark, _phase),
+                  painter: _AmbientPainter(palette, sprites, _phase),
                   size: Size.infinite,
                 ),
               ),
@@ -144,10 +156,7 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
               ),
             ],
           )
-        : CustomPaint(
-            painter: _AmbientPainter(palette, colors.isDark, _phase),
-            size: Size.infinite,
-          );
+        : CustomPaint(painter: _AmbientPainter(palette, sprites, _phase), size: Size.infinite);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -158,12 +167,71 @@ class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindi
   }
 }
 
-class _AmbientPainter extends CustomPainter {
-  _AmbientPainter(this.palette, this.isDark, this.t) : super(repaint: t);
+/// The three light blobs, each pre-rendered once into a small soft radial-gradient image.
+///
+/// Drawing a fresh `RadialGradient` shader every drift step looks harmless but is not:
+/// with Impeller on Windows (OpenGL ES) every gradient paint kept hundreds of megabytes of
+/// native memory alive, so the app grew to several GB within seconds and the growth was
+/// proportional to the number of repaints (a window resize repaints on every frame).
+/// Scaling a cached image is a plain textured quad and costs nothing, so never go back to
+/// creating gradient shaders inside `paint`.
+class _BlobSprites {
+  _BlobSprites._(this.palette, this.isDark, this.a, this.b, this.c);
+
+  /// Edge length of one sprite in pixels. The gradient is smooth, so it scales up cleanly.
+  static const int size = 256;
+
+  factory _BlobSprites.render(BackgroundPalette palette, bool isDark) {
+    final strength = isDark ? 0.42 : 0.5;
+    return _BlobSprites._(
+      palette,
+      isDark,
+      _blob(palette.a, strength),
+      _blob(palette.b, strength),
+      _blob(palette.c, strength),
+    );
+  }
+
+  static ui.Image _blob(Color color, double strength) {
+    const half = size / 2;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Offset.zero & const Size.square(size * 1.0),
+      Paint()
+        ..shader = ui.Gradient.radial(const Offset(half, half), half, [
+          color.withValues(alpha: strength),
+          color.withValues(alpha: 0),
+        ]),
+    );
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(size, size);
+    picture.dispose();
+    return image;
+  }
 
   final BackgroundPalette palette;
   final bool isDark;
+  final ui.Image a;
+  final ui.Image b;
+  final ui.Image c;
+
+  void dispose() {
+    a.dispose();
+    b.dispose();
+    c.dispose();
+  }
+}
+
+class _AmbientPainter extends CustomPainter {
+  _AmbientPainter(this.palette, this.sprites, this.t) : super(repaint: t);
+
+  final BackgroundPalette palette;
+  final _BlobSprites sprites;
   final ValueListenable<double> t;
+
+  static final Paint _spritePaint = Paint()..filterQuality = FilterQuality.low;
+  static const Rect _source = Rect.fromLTWH(0, 0, 256, 256);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -171,29 +239,26 @@ class _AmbientPainter extends CustomPainter {
     if (size.isEmpty) return;
     final phase = t.value * 2 * math.pi;
     final reach = math.max(size.width, size.height);
-    final strength = isDark ? 0.42 : 0.5;
 
-    void blob(Color color, double x, double y, double radius, double dx, double dy, double p) {
+    void blob(ui.Image image, double x, double y, double radius, double dx, double dy, double p) {
       final center = Offset(
         size.width * (x + dx * math.sin(phase + p)),
         size.height * (y + dy * math.cos(phase * 1.0 + p)),
       );
       final r = reach * radius;
-      final paint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            color.withValues(alpha: strength),
-            color.withValues(alpha: 0),
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: r));
-      canvas.drawCircle(center, r, paint);
+      canvas.drawImageRect(
+        image,
+        _source,
+        Rect.fromCircle(center: center, radius: r),
+        _spritePaint,
+      );
     }
 
-    blob(palette.a, 0.12, 0.08, 0.55, 0.05, 0.04, 0);
-    blob(palette.b, 0.92, 0.28, 0.5, 0.04, 0.06, 2.1);
-    blob(palette.c, 0.5, 1.02, 0.55, 0.06, 0.03, 4.2);
+    blob(sprites.a, 0.12, 0.08, 0.55, 0.05, 0.04, 0);
+    blob(sprites.b, 0.92, 0.28, 0.5, 0.04, 0.06, 2.1);
+    blob(sprites.c, 0.5, 1.02, 0.55, 0.06, 0.03, 4.2);
   }
 
   @override
-  bool shouldRepaint(_AmbientPainter old) => old.palette != palette || old.isDark != isDark;
+  bool shouldRepaint(_AmbientPainter old) => old.palette != palette || old.sprites != sprites;
 }

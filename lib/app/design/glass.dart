@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -27,14 +29,17 @@ ImageFilter glassFilter(double blur) {
 
 // ----------------------------------------------------------------- motion
 
-/// Tells the glass below it that its page is currently being slid in or out by a
-/// route transition. While that is true every [BackdropFilter] is switched off
-/// (`enabled: false`: no offscreen layer, no blur pass) and only the translucent
-/// fill is drawn. Over the soft background the difference is barely visible, but a
-/// dashboard full of cards plus the sidebar would otherwise re-blur a window-sized
-/// area a dozen times per frame, which is what made page changes stutter.
+/// Tells the glass below it that something is moving on screen: a route transition is
+/// sliding its page in or out, or the window is being resized ([GlassResizeTracker]).
+/// While that is true the glass switches to a "lite" look: every [BackdropFilter] is off
+/// (`enabled: false`: no offscreen layer, no blur pass) and the blurred drop shadow is
+/// skipped. Over the soft background the difference is barely visible for a fraction of
+/// a second, but a dashboard full of cards would otherwise re-blur and re-shadow
+/// everything on every frame, which made page changes and window resizing stutter (and,
+/// with Impeller on Windows, allocated hundreds of MB of native memory per second while
+/// dragging).
 ///
-/// The widget tree is unchanged by the flag (only `enabled` flips), so no state is lost.
+/// The widget tree is unchanged by the flag (only painting differs), so no state is lost.
 class GlassMotionScope extends InheritedWidget {
   const GlassMotionScope({super.key, required this.moving, required super.child});
 
@@ -106,7 +111,89 @@ class _GlassMotionTrackerState extends State<GlassMotionTracker> {
   }
 
   @override
-  Widget build(BuildContext context) => GlassMotionScope(moving: _moving, child: widget.child);
+  Widget build(BuildContext context) {
+    // An outer scope (the window being resized) keeps the glass lite as well.
+    final outer = GlassMotionScope.of(context);
+    return GlassMotionScope(moving: _moving || outer, child: widget.child);
+  }
+}
+
+/// Switches [GlassMotionScope] on while the window is being resized and for a short
+/// moment after the last size change, so dragging a window edge never pays for blurs,
+/// blurred shadows or gradient rims on every frame. Place it once above the Navigator.
+class GlassResizeTracker extends StatefulWidget {
+  const GlassResizeTracker({
+    super.key,
+    required this.child,
+    this.settle = const Duration(milliseconds: 160),
+  });
+
+  final Widget child;
+
+  /// How long the size must stay unchanged before the full glass look returns.
+  final Duration settle;
+
+  @override
+  State<GlassResizeTracker> createState() => _GlassResizeTrackerState();
+}
+
+class _GlassResizeTrackerState extends State<GlassResizeTracker> with WidgetsBindingObserver {
+  Size? _size;
+  bool _resizing = false;
+  Timer? _settle;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _size ??= View.maybeOf(context)?.physicalSize;
+  }
+
+  @override
+  void didChangeMetrics() {
+    final size = View.maybeOf(context)?.physicalSize;
+    if (size == null || size == _size) return;
+    _size = size;
+    _settle?.cancel();
+    _settle = Timer(widget.settle, () {
+      if (mounted) setState(() => _resizing = false);
+    });
+    if (!_resizing) setState(() => _resizing = true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _settle?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => GlassMotionScope(moving: _resizing, child: widget.child);
+}
+
+/// Strength of the backdrop blur under [GlassCard]s that do not set their own `blur`.
+///
+/// Cards do no blur by default: they sit on a smooth gradient, where blurring changes
+/// next to nothing, yet every blur is an offscreen pass over the card area that has to be
+/// redone whenever anything under it changes. A picture background is the exception (it
+/// has detail that must be softened behind text), so [AppBackground] raises the value
+/// while one is shown.
+class GlassCardBlur extends InheritedWidget {
+  const GlassCardBlur({super.key, required this.blur, required super.child});
+
+  final double blur;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<GlassCardBlur>()?.blur ?? 0;
+
+  @override
+  bool updateShouldNotify(GlassCardBlur old) => old.blur != blur;
 }
 
 // --------------------------------------------------------------- painters
@@ -114,7 +201,12 @@ class _GlassMotionTrackerState extends State<GlassMotionTracker> {
 /// Soft drop shadow drawn only *outside* the shape, so it does not darken the
 /// translucent glass above it.
 class _OuterShadowPainter extends CustomPainter {
-  const _OuterShadowPainter({required this.radius, required this.color, required this.elevation});
+  const _OuterShadowPainter({
+    required this.radius,
+    required this.color,
+    required this.elevation,
+    required this.lite,
+  });
 
   final double radius;
   final Color color;
@@ -122,9 +214,12 @@ class _OuterShadowPainter extends CustomPainter {
   /// 0 = flat, 1 = resting card, 2 = floating chrome.
   final double elevation;
 
+  /// Draw nothing: a blurred shadow is an offscreen blur pass per shape per frame.
+  final bool lite;
+
   @override
   void paint(Canvas canvas, Size size) {
-    if (elevation <= 0 || size.isEmpty) return;
+    if (lite || elevation <= 0 || size.isEmpty) return;
     final rrect = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius));
     final blur = 10.0 + elevation * 14;
     final outside = Path()
@@ -151,11 +246,16 @@ class _OuterShadowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_OuterShadowPainter old) =>
-      old.radius != radius || old.color != color || old.elevation != elevation;
+      old.radius != radius || old.color != color || old.elevation != elevation || old.lite != lite;
 }
 
-/// 1 px gradient edge (bright top-left, dim bottom-right) plus a faint inner
-/// sheen along the top: the "lit glass" rim.
+/// 1 px "lit glass" rim: bright along the top-left, dim along the bottom-right, plus a
+/// faint highlight just inside the top edge.
+///
+/// Built from solid-colour strokes and a diagonal clip only. The first version used two
+/// `LinearGradient` shaders per paint; with Impeller on Windows (OpenGL ES) every freshly
+/// created gradient shader kept a lot of native memory alive (hundreds of MB for a
+/// dashboard, and a lot more while a window is resized), so no shaders are created in here.
 class _RimPainter extends CustomPainter {
   const _RimPainter({
     required this.radius,
@@ -176,31 +276,30 @@ class _RimPainter extends CustomPainter {
     if (size.isEmpty) return;
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect.deflate(0.5), Radius.circular(radius - 0.5));
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [light, dark],
-        ).createShader(rect),
-    );
-    // Sheen: a short bright gradient hugging the top edge, inside the rim.
-    final sheenRect = Rect.fromLTWH(0, 0, size.width, (size.height * 0.5).clamp(0, 56));
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    // Whole edge dim, then the half above the bottom-left / top-right diagonal bright.
+    canvas.drawRRect(rrect, rim..color = dark);
     canvas.save();
-    canvas.clipRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
-    canvas.drawRect(
-      sheenRect,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [sheen, sheen.withValues(alpha: 0)],
-        ).createShader(sheenRect),
+    canvas.clipPath(
+      Path()
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(0, size.height)
+        ..close(),
     );
+    canvas.drawRRect(rrect, rim..color = light);
     canvas.restore();
+    // Sheen: a hairline just inside the top edge, between the corner curves.
+    final inset = math.min(radius, size.width / 2);
+    canvas.drawLine(
+      Offset(inset, 1.5),
+      Offset(size.width - inset, 1.5),
+      Paint()
+        ..color = sheen
+        ..strokeWidth = 1,
+    );
     final f = focus;
     if (f != null) {
       canvas.drawRRect(
@@ -225,9 +324,9 @@ class _RimPainter extends CustomPainter {
 // ----------------------------------------------------------------- surface
 
 /// Chrome-level glass: a real backdrop blur under a translucent fill, a lit
-/// rim and a floating shadow. Use it sparingly (sidebar, dialogs, popovers,
-/// tray panel): every instance costs a blur pass. Scrolling content should use
-/// [GlassCard] instead.
+/// rim and a floating shadow. Use it sparingly (dialogs, popovers, tray panel,
+/// the mobile bottom bar): every instance costs a blur pass (pass `blur: 0` to
+/// skip it). Scrolling content should use [GlassCard] instead.
 class GlassSurface extends StatelessWidget {
   const GlassSurface({
     super.key,
@@ -250,29 +349,34 @@ class GlassSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final g = context.glass;
     final shape = BorderRadius.circular(radius);
+    final lite = GlassMotionScope.of(context);
     Widget content = child;
     if (padding != null) content = Padding(padding: padding!, child: content);
+    final surface = CustomPaint(
+      foregroundPainter: _RimPainter(
+        radius: radius,
+        light: g.edgeLight,
+        dark: g.edgeDark,
+        sheen: g.highlight.withValues(alpha: g.highlight.a * 0.35),
+        focus: null,
+      ),
+      child: ColoredBox(
+        color: fill ?? g.fillStrong,
+        child: Material(type: MaterialType.transparency, child: content),
+      ),
+    );
     return CustomPaint(
-      painter: _OuterShadowPainter(radius: radius, color: g.shadow, elevation: elevation),
+      painter: _OuterShadowPainter(
+        radius: radius,
+        color: g.shadow,
+        elevation: elevation,
+        lite: lite,
+      ),
       child: ClipRRect(
         borderRadius: shape,
-        child: BackdropFilter(
-          enabled: !GlassMotionScope.of(context),
-          filter: glassFilter(blur),
-          child: CustomPaint(
-            foregroundPainter: _RimPainter(
-              radius: radius,
-              light: g.edgeLight,
-              dark: g.edgeDark,
-              sheen: g.highlight.withValues(alpha: g.highlight.a * 0.35),
-              focus: null,
-            ),
-            child: ColoredBox(
-              color: fill ?? g.fillStrong,
-              child: Material(type: MaterialType.transparency, child: content),
-            ),
-          ),
-        ),
+        child: blur <= 0
+            ? surface
+            : BackdropFilter(enabled: !lite, filter: glassFilter(blur), child: surface),
       ),
     );
   }
@@ -357,10 +461,10 @@ class _PressableState extends State<Pressable> {
 
 // -------------------------------------------------------------------- card
 
-/// Card-level glass: translucent fill over a *light* backdrop blur ([blur],
-/// smaller than chrome's), lit rim and soft shadow. Pass `blur: 0` when the
-/// card already sits on another glass surface (tray panel, dialogs). When
-/// [onTap] is set it lifts on hover and dips on press.
+/// Card-level glass: translucent fill, lit rim and soft shadow, and (only over a picture
+/// background, see [GlassCardBlur]) a *light* backdrop blur. [blur] overrides that;
+/// pass `blur: 0` when the card already sits on another glass surface (tray panel,
+/// dialogs). When [onTap] is set it lifts on hover and dips on press.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -369,7 +473,7 @@ class GlassCard extends StatelessWidget {
     this.padding,
     this.radius = Rd.lg,
     this.clip = true,
-    this.blur = 16,
+    this.blur,
   });
 
   final Widget child;
@@ -377,20 +481,19 @@ class GlassCard extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final double radius;
   final bool clip;
-  final double blur;
 
-  Widget _maybeBlur(BuildContext context, Widget child) => blur <= 0
-      ? child
-      : BackdropFilter(
-          enabled: !GlassMotionScope.of(context),
-          filter: glassFilter(blur),
-          child: child,
-        );
+  /// Backdrop blur sigma; null follows [GlassCardBlur].
+  final double? blur;
+
+  Widget _maybeBlur(BuildContext context, double sigma, bool lite, Widget child) =>
+      sigma <= 0 ? child : BackdropFilter(enabled: !lite, filter: glassFilter(sigma), child: child);
 
   @override
   Widget build(BuildContext context) {
     final g = context.glass;
     final accent = Theme.of(context).colorScheme.primary;
+    final lite = GlassMotionScope.of(context);
+    final sigma = blur ?? GlassCardBlur.of(context);
     Widget build(bool hovered, bool focused) {
       final shape = BorderRadius.circular(radius);
       Widget content = padding == null ? child : Padding(padding: padding!, child: child);
@@ -404,6 +507,7 @@ class GlassCard extends StatelessWidget {
             radius: radius,
             color: g.shadow,
             elevation: hovered ? 1.6 : 1,
+            lite: lite,
           ),
           foregroundPainter: _RimPainter(
             radius: radius,
@@ -418,6 +522,8 @@ class GlassCard extends StatelessWidget {
             // children from painting their ink behind the fill.
             child: _maybeBlur(
               context,
+              sigma,
+              lite,
               ColoredBox(
                 color: g.fill,
                 child: Material(type: MaterialType.transparency, child: content),

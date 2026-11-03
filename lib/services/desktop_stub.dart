@@ -10,6 +10,9 @@ class DesktopIntegration {
 
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
 
+  /// Whether the main UI is unmounted to save memory (hidden window); never on web.
+  final ValueNotifier<bool> uiSuspended = ValueNotifier(false);
+
   /// Whether the tray panel window has rounded corners; never on web.
   final ValueNotifier<bool> panelRounded = ValueNotifier(false);
 

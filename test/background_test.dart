@@ -98,6 +98,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('re-renders its blobs for another theme and keeps drifting', (tester) async {
+      Widget app(ThemeData theme, BackgroundStyle style) => MaterialApp(
+        theme: theme,
+        home: AmbientBackground(style: style, child: const Text('x')),
+      );
+
+      await tester.pumpWidget(app(AppTheme.light(), BackgroundStyle.aurora));
+      await tester.pump(const Duration(seconds: 1)); // a drift step repaints the cached blobs
+      await tester.pumpWidget(app(AppTheme.dark(), BackgroundStyle.sunset));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('x'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink()); // disposes the blob images
+    });
+
     test('every preset has distinct light and dark palettes', () {
       for (final style in BackgroundStyle.values.where((b) => b.isPreset)) {
         final light = BackgroundPalette.of(style, GlassColors.light);

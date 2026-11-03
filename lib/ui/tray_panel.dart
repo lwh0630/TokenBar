@@ -177,6 +177,7 @@ class _AccountTile extends StatelessWidget {
     final windows = s.windows.take(2).toList();
 
     return GlassCard(
+      blur: 0, // already sits on the panel's glass
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       radius: Rd.md,
       child: Column(
