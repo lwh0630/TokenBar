@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -217,23 +218,64 @@ void main() {
     await _dispose(tester, controller);
   });
 
-  testWidgets('glass blur is suspended only while a page transition runs', (tester) async {
-    final (controller, _) = await _pump(tester, const Size(1200, 800), cardBlur: 16);
+  for (final (platform, suspended) in [
+    (TargetPlatform.windows, true),
+    (TargetPlatform.android, false),
+  ]) {
+    testWidgets('glass blur ${suspended ? 'is suspended only while' : 'stays on while'} a page '
+        'transition runs on $platform', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final (controller, _) = await _pump(tester, const Size(1200, 800), cardBlur: 16);
 
-    bool anyBlur() =>
-        tester.widgetList<BackdropFilter>(find.byType(BackdropFilter)).any((f) => f.enabled);
+      bool anyBlur() =>
+          tester.widgetList<BackdropFilter>(find.byType(BackdropFilter)).any((f) => f.enabled);
 
-    expect(anyBlur(), isTrue); // over a picture the glass blurs at rest
+      expect(anyBlur(), isTrue); // over a picture the glass blurs at rest
 
-    await tester.tap(find.text('Codex').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(anyBlur(), isFalse); // sliding: fills only, no blur passes
+      await tester.tap(find.text('Codex').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // Desktop: sliding gets fills only, no blur passes. Phones keep the blur.
+      expect(anyBlur(), !suspended);
 
-    await tester.pumpAndSettle();
-    expect(anyBlur(), isTrue); // settled: blur is back
+      await tester.pumpAndSettle();
+      expect(anyBlur(), isTrue); // settled: blur is back
 
-    await _dispose(tester, controller);
+      await _dispose(tester, controller);
+      debugDefaultTargetPlatformOverride = null; // before the test's invariants are checked
+    });
+  }
+
+  testWidgets('overscroll does not wrap the glass in a stretch layer', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    Future<void> pullDown(ScrollBehavior? behavior) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: behavior,
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [for (var i = 0; i < 3; i++) const GlassCard(blur: 16, child: Text('c'))],
+            ),
+          ),
+        ),
+      );
+      // The stretch indicator is what an overscroll-pull builds around the list.
+      await tester.drag(find.byType(ListView), const Offset(0, 120), warnIfMissed: false);
+      await tester.pump();
+    }
+
+    await pullDown(null);
+    expect(find.byType(StretchingOverscrollIndicator), findsOneWidget, reason: 'stock behaviour');
+
+    await pullDown(const GlassScrollBehavior());
+    expect(find.byType(StretchingOverscrollIndicator), findsNothing);
+    expect(find.byType(GlowingOverscrollIndicator), findsNothing);
+    debugDefaultTargetPlatformOverride = null; // before the test's invariants are checked
   });
 
   testWidgets('ambient background honors reduced motion', (tester) async {

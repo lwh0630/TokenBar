@@ -348,6 +348,21 @@ class AppTheme {
   }
 }
 
+/// Scrolling without an overscroll indicator.
+///
+/// Android 12+ stretches the content on overscroll (pull-to-refresh, hitting the end of a
+/// list) by wrapping it in an `ImageFilter` shader, which is an offscreen layer: every
+/// `BackdropFilter` card inside then samples an empty backdrop, so the blur disappeared
+/// for as long as the stretch lasted. The pull-to-refresh spinner and the bouncing physics
+/// are unaffected; only the stretch / glow is dropped.
+class GlassScrollBehavior extends MaterialScrollBehavior {
+  const GlassScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
+}
+
 /// Horizontal carousel: the pushed page slides in from the right while the page
 /// below slides out to the left, so the two never overlap.
 ///
@@ -377,7 +392,12 @@ class _GlassPageTransitions extends PageTransitionsBuilder {
     Widget child,
   ) {
     if (MediaQuery.maybeDisableAnimationsOf(context) == true) return child;
+    // Phones keep the blur while pages slide (the blur vanishing and popping back in was
+    // the more visible flaw there, and the window is never resized); desktops go lite.
+    final platform = Theme.of(context).platform;
+    final phone = platform == TargetPlatform.android || platform == TargetPlatform.iOS;
     return GlassMotionTracker(
+      suspendOnTransition: !phone,
       animation: animation,
       secondaryAnimation: secondaryAnimation,
       child: SlideTransition(

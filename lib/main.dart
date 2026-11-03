@@ -118,6 +118,7 @@ class _TokenBarAppState extends State<TokenBarApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'TokenBar',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const GlassScrollBehavior(),
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,

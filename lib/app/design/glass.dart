@@ -55,17 +55,22 @@ class GlassMotionScope extends InheritedWidget {
 /// Feeds [GlassMotionScope] from the animations of one route: moving while either
 /// the route's own push / pop or the covering route's push / pop is running.
 /// Listens to status changes only, so it does not rebuild every frame.
+///
+/// With [suspendOnTransition] false the transitions are ignored (the blur stays on while
+/// pages slide); only an outer scope can still switch the glass to lite.
 class GlassMotionTracker extends StatefulWidget {
   const GlassMotionTracker({
     super.key,
     required this.animation,
     required this.secondaryAnimation,
     required this.child,
+    this.suspendOnTransition = true,
   });
 
   final Animation<double> animation;
   final Animation<double> secondaryAnimation;
   final Widget child;
+  final bool suspendOnTransition;
 
   @override
   State<GlassMotionTracker> createState() => _GlassMotionTrackerState();
@@ -77,10 +82,14 @@ class _GlassMotionTrackerState extends State<GlassMotionTracker> {
   static bool _running(Animation<double> a) =>
       a.status == AnimationStatus.forward || a.status == AnimationStatus.reverse;
 
+  bool get _transitioning =>
+      widget.suspendOnTransition &&
+      (_running(widget.animation) || _running(widget.secondaryAnimation));
+
   @override
   void initState() {
     super.initState();
-    _moving = _running(widget.animation) || _running(widget.secondaryAnimation);
+    _moving = _transitioning;
     widget.animation.addStatusListener(_onStatus);
     widget.secondaryAnimation.addStatusListener(_onStatus);
   }
@@ -106,7 +115,7 @@ class _GlassMotionTrackerState extends State<GlassMotionTracker> {
   }
 
   void _onStatus(AnimationStatus _) {
-    final moving = _running(widget.animation) || _running(widget.secondaryAnimation);
+    final moving = _transitioning;
     if (moving != _moving) setState(() => _moving = moving);
   }
 
