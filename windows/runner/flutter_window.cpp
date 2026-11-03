@@ -3,6 +3,8 @@
 #include <flutter/method_result_functions.h>
 #include <flutter/standard_method_codec.h>
 
+#include <dwmapi.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -33,6 +35,31 @@ bool FlutterWindow::OnCreate() {
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(), "tokenbar/instance",
           &flutter::StandardMethodCodec::GetInstance());
+  window_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "tokenbar/window",
+          &flutter::StandardMethodCodec::GetInstance());
+  window_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() != "setRoundedCorners") {
+          result->NotImplemented();
+          return;
+        }
+        const auto* round = call.arguments() ? std::get_if<bool>(call.arguments()) : nullptr;
+        HWND hwnd = GetHandle();
+        if (!round || !hwnd) {
+          result->Success(flutter::EncodableValue(false));
+          return;
+        }
+        // Windows 11 only (DWMWA_WINDOW_CORNER_PREFERENCE = 33): a frameless
+        // popup is square unless it opts in. Older Windows rejects the
+        // attribute; the reply tells Dart whether the corners really are round
+        // so it only draws a rounded outline when the window is clipped to match.
+        const DWORD preference = *round ? 2 /* DWMWCP_ROUND */ : 0 /* DWMWCP_DEFAULT */;
+        const HRESULT hr = ::DwmSetWindowAttribute(hwnd, 33, &preference, sizeof(preference));
+        result->Success(flutter::EncodableValue(SUCCEEDED(hr) && *round));
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -75,6 +102,7 @@ void FlutterWindow::HandleActivateRequest() {
 
 void FlutterWindow::OnDestroy() {
   instance_channel_ = nullptr;
+  window_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

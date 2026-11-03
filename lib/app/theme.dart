@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'design/glass.dart' show GlassMotionTracker;
 import 'design/tokens.dart';
 
 /// Liquid-glass design system on top of Material 3.
@@ -347,10 +348,25 @@ class AppTheme {
   }
 }
 
-/// Short fade with a hint of upward travel; keeps pushed pages feeling like a
-/// layer of glass settling in rather than a platform slide.
+/// Horizontal carousel: the pushed page slides in from the right while the page
+/// below slides out to the left, so the two never overlap.
+///
+/// Deliberately no fade: pages are full of `BackdropFilter` glass, and a
+/// `FadeTransition` wraps the page in an offscreen layer that (a) costs a full-screen
+/// copy per frame and (b) makes every blur sample an empty backdrop, so the glass
+/// looked wrong during the transition and popped into place when it ended. Plain
+/// translations keep the page's layers cached and the blur correct.
 class _GlassPageTransitions extends PageTransitionsBuilder {
   const _GlassPageTransitions();
+
+  static final _enter = Tween(
+    begin: const Offset(1, 0),
+    end: Offset.zero,
+  ).chain(CurveTween(curve: Motion.curve));
+  static final _exit = Tween(
+    begin: Offset.zero,
+    end: const Offset(-1, 0),
+  ).chain(CurveTween(curve: Motion.curve));
 
   @override
   Widget buildTransitions<T>(
@@ -360,12 +376,16 @@ class _GlassPageTransitions extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(parent: animation, curve: Motion.curve);
-    return FadeTransition(
-      opacity: curved,
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true) return child;
+    return GlassMotionTracker(
+      animation: animation,
+      secondaryAnimation: secondaryAnimation,
       child: SlideTransition(
-        position: Tween(begin: const Offset(0, 0.015), end: Offset.zero).animate(curved),
-        child: child,
+        position: animation.drive(_enter),
+        child: SlideTransition(
+          position: secondaryAnimation.drive(_exit),
+          child: RepaintBoundary(child: child),
+        ),
       ),
     );
   }

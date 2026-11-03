@@ -16,6 +16,8 @@ import 'package:token_bar/services/persistence.dart';
 import 'package:token_bar/state/app_controller.dart';
 import 'package:token_bar/state/settings.dart';
 import 'package:token_bar/state/update_controller.dart';
+import 'package:token_bar/ui/pages/account_detail_page.dart';
+import 'package:token_bar/ui/widgets/history_chart.dart';
 
 Future<(AppController, UpdateController)> _pump(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size * 2;
@@ -179,6 +181,44 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('x'), findsOneWidget);
+  });
+
+  testWidgets('detail page loads its history only after the push animation', (tester) async {
+    // Tall window so the history card (lazily built list) is on screen.
+    final (controller, _) = await _pump(tester, const Size(1200, 2400));
+
+    await tester.tap(find.text('Codex').first);
+    await tester.pump(); // route pushed, animation starts
+    await tester.pump(const Duration(milliseconds: 100)); // mid-transition
+    expect(find.byType(AccountDetailPage), findsOneWidget);
+    expect(find.byType(HistorySkeleton), findsOneWidget);
+    expect(find.byType(HistoryChart), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.byType(HistorySkeleton), findsNothing);
+    expect(find.byType(HistoryChart), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await _dispose(tester, controller);
+  });
+
+  testWidgets('glass blur is suspended only while a page transition runs', (tester) async {
+    final (controller, _) = await _pump(tester, const Size(1200, 800));
+
+    bool anyBlur() =>
+        tester.widgetList<BackdropFilter>(find.byType(BackdropFilter)).any((f) => f.enabled);
+
+    expect(anyBlur(), isTrue); // at rest the glass blurs
+
+    await tester.tap(find.text('Codex').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(anyBlur(), isFalse); // sliding: fills only, no blur passes
+
+    await tester.pumpAndSettle();
+    expect(anyBlur(), isTrue); // settled: blur is back
+
+    await _dispose(tester, controller);
   });
 
   testWidgets('ambient background honors reduced motion', (tester) async {

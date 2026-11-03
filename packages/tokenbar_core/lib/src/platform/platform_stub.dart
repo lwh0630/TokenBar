@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'process_types.dart';
 
 export 'process_types.dart';
@@ -21,6 +23,9 @@ Future<DateTime?> fileModified(String path) async => null;
 Future<List<LocalFileEntry>> listDirectory(String path) async => const [];
 
 Stream<String> readLines(String path) => const Stream.empty();
+
+/// No isolates on the web: runs [task] on the current one.
+Future<T> runInBackground<T>(FutureOr<T> Function() task) async => task();
 
 Future<void> writeTextFileAtomic(String path, String contents) async {
   throw UnsupportedError('File access is not available on this platform');

@@ -17,6 +17,9 @@ import 'widgets/usage_bar.dart';
 class TrayPanel extends StatelessWidget {
   const TrayPanel({super.key});
 
+  /// Corner radius of the panel window on Windows 11 (DWM's "round" preference).
+  static const cornerRadius = 8.0;
+
   /// Window height that fits [snapshots] without a scrollbar (capped; the list
   /// scrolls beyond that). Mirrors the layout below, measured on Windows.
   static double heightFor(List<UsageSnapshot> snapshots) {
@@ -41,43 +44,58 @@ class TrayPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final snapshots = c.snapshots;
 
+    // On Windows 11 the window itself has rounded corners (set natively); draw the
+    // same radius so the outline follows them instead of being cut off at the corners.
     return Material(
       type: MaterialType.transparency,
-      child: AppBackground(
-        animate: false,
-        child: DecoratedBox(
-          decoration: BoxDecoration(border: Border.all(color: context.glass.hairline)),
-          child: Column(
-            children: [
-              _Header(controller: c),
-              Expanded(
-                child: snapshots.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            c.refreshing ? l.quotaLoading : l.noAccountsYetPanel,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: c.desktop.panelRounded,
+        builder: (context, rounded, child) {
+          final radius = rounded ? BorderRadius.circular(cornerRadius) : BorderRadius.zero;
+          return ClipRRect(
+            borderRadius: radius,
+            child: AppBackground(
+              animate: false,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(color: context.glass.hairline),
+                ),
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: Column(
+          children: [
+            _Header(controller: c),
+            Expanded(
+              child: snapshots.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          c.refreshing ? l.quotaLoading : l.noAccountsYetPanel,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      )
-                    : ValueListenableBuilder(
-                        valueListenable: c.now,
-                        builder: (context, now, _) => ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                          itemCount: snapshots.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
-                          itemBuilder: (_, i) => _AccountTile(snapshot: snapshots[i], now: now),
-                        ),
                       ),
-              ),
-              Divider(height: 1, color: theme.colorScheme.outlineVariant),
-              _Footer(controller: c),
-            ],
-          ),
+                    )
+                  : ValueListenableBuilder(
+                      valueListenable: c.now,
+                      builder: (context, now, _) => ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        itemCount: snapshots.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _AccountTile(snapshot: snapshots[i], now: now),
+                      ),
+                    ),
+            ),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+            _Footer(controller: c),
+          ],
         ),
       ),
     );

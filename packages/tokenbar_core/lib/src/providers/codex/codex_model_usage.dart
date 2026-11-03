@@ -108,6 +108,15 @@ Future<ModelUsageSeries?> loadCodexModelUsage(String home, DateTime from, DateTi
   return aggregator.build(source: 'codex-logs');
 }
 
+/// [loadCodexModelUsage] on a background isolate (the app calls this one): scanning a month
+/// of session logs decodes a lot of JSON and would otherwise stall the UI thread. Only plain
+/// values cross the isolate boundary.
+Future<ModelUsageSeries?> loadCodexModelUsageInBackground(
+  String home,
+  DateTime from,
+  DateTime to,
+) => platform.runInBackground(() => loadCodexModelUsage(home, from, to));
+
 /// Runs [lines] of one session file through a [CodexSessionParser] and reports each delta.
 Future<void> collectCodexFileUsage(
   Stream<String> lines,

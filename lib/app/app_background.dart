@@ -19,12 +19,18 @@ class AppBackground extends StatelessWidget {
     final (style, path, dim) = context.select<AppController, (BackgroundStyle, String, double)>(
       (c) => (c.settings.background, c.settings.backgroundImage, c.settings.backgroundDim),
     );
-    return AmbientBackground(
-      animate: animate,
-      style: style,
-      image: style == BackgroundStyle.image ? backgroundImageProvider(path) : null,
-      dim: dim,
+    // The drift only runs while the window has focus: every drift step re-blurs all the
+    // glass above it, and an unfocused window that sits still needs no frames at all.
+    return ValueListenableBuilder<bool>(
+      valueListenable: context.read<AppController>().desktop.focused,
       child: child,
+      builder: (context, focused, child) => AmbientBackground(
+        animate: animate && focused,
+        style: style,
+        image: style == BackgroundStyle.image ? backgroundImageProvider(path) : null,
+        dim: dim,
+        child: child,
+      ),
     );
   }
 }

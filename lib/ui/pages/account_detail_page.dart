@@ -37,6 +37,42 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
     _ => l.rangeWeek,
   };
 
+  /// Whether the push animation is over. History and per-model usage are only
+  /// requested then: starting disk / network work on the first frame competes with
+  /// the route transition and makes it stutter.
+  bool _ready = false;
+  Animation<double>? _routeAnimation;
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_ready || _routeAnimation != null) return;
+    final route = ModalRoute.of(context);
+    final animation = route?.animation;
+    // A route is built once while still offstage, and then its animation is a fake
+    // "already complete" one: only trust `completed` when the route is on stage.
+    if (route == null || animation == null || (!route.offstage && animation.isCompleted)) {
+      _ready = true;
+      return;
+    }
+    _route = route;
+    _routeAnimation = animation..addStatusListener(_onRouteStatus);
+  }
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || (_route?.offstage ?? false)) return;
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    _routeAnimation = null;
+    if (mounted) setState(() => _ready = true);
+  }
+
+  @override
+  void dispose() {
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    super.dispose();
+  }
+
   void _load(AppController c) {
     _loadedFor = c.lastRefresh;
     _history = _fetch(c, DateTime.now().subtract(_ranges[_range]!));
@@ -62,7 +98,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final c = context.watch<AppController>();
-    if (_history == null || _loadedFor != c.lastRefresh) _load(c);
+    if (_ready && (_history == null || _loadedFor != c.lastRefresh)) _load(c);
     final s =
         c.snapshots.where((x) => x.accountId == widget.accountId).firstOrNull ??
         c.snapshot(widget.accountId);

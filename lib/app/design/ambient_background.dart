@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import 'background.dart';
 import 'tokens.dart';
@@ -42,40 +42,52 @@ class AmbientBackground extends StatefulWidget {
   State<AmbientBackground> createState() => _AmbientBackgroundState();
 }
 
-class _AmbientBackgroundState extends State<AmbientBackground>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  /// One drift cycle. The motion is so slow that repainting ~10 times a second
-  /// looks identical to 60 fps but keeps the blur layers above cheap.
+class _AmbientBackgroundState extends State<AmbientBackground> with WidgetsBindingObserver {
+  /// One drift cycle. The motion is so slow (a few pixels per second at the fastest)
+  /// that repainting twice a second looks identical to 60 fps, while every step costs a
+  /// re-blur of all the glass above, so keep it rare.
   static const _cycle = Duration(seconds: 90);
-  static const _step = Duration(milliseconds: 200);
+  static const _step = Duration(milliseconds: 500);
 
   final ValueNotifier<double> _phase = ValueNotifier(0);
-  late final Ticker _ticker = createTicker(_onTick);
-  Duration _lastPaint = Duration.zero;
+
+  /// A plain timer instead of a `Ticker`: a ticker asks for a frame on every vsync
+  /// (60 wake-ups a second) just to find out that nothing needs painting yet.
+  Timer? _timer;
+  final Stopwatch _running = Stopwatch();
+  Duration _banked = Duration.zero; // drift time accumulated before the last pause
   bool _reduceMotion = false;
   bool _visible = true;
 
-  void _onTick(Duration elapsed) {
-    if (elapsed - _lastPaint < _step) return;
-    _lastPaint = elapsed;
-    _phase.value = (elapsed.inMilliseconds % _cycle.inMilliseconds) / _cycle.inMilliseconds;
+  void _onTick(Timer _) {
+    final ms = (_banked + _running.elapsed).inMilliseconds;
+    _phase.value = (ms % _cycle.inMilliseconds) / _cycle.inMilliseconds;
   }
 
   void _sync() {
     final shouldRun = widget.animate && !_reduceMotion && _visible && !widget._showsImage;
-    if (shouldRun == _ticker.isActive) return;
+    if (shouldRun == (_timer != null)) return;
     if (shouldRun) {
-      _lastPaint = Duration.zero;
-      _ticker.start();
+      _running.start();
+      _timer = Timer.periodic(_step, _onTick);
     } else {
-      _ticker.stop();
+      _timer!.cancel();
+      _timer = null;
+      _banked += _running.elapsed;
+      _running
+        ..stop()
+        ..reset();
     }
   }
+
+  static bool _isVisible(AppLifecycleState? state) =>
+      state != AppLifecycleState.hidden && state != AppLifecycleState.paused;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _visible = _isVisible(WidgetsBinding.instance.lifecycleState);
   }
 
   @override
@@ -93,14 +105,14 @@ class _AmbientBackgroundState extends State<AmbientBackground>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _visible = state != AppLifecycleState.hidden && state != AppLifecycleState.paused;
+    _visible = _isVisible(state);
     _sync();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _ticker.dispose();
+    _timer?.cancel();
     _phase.dispose();
     super.dispose();
   }

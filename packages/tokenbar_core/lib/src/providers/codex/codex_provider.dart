@@ -113,7 +113,7 @@ class CodexProvider extends UsageProvider {
     try {
       final home = resolveCodexHome(account.homeDir);
       if (home == null) return null;
-      return await loadCodexModelUsage(home, from, to);
+      return await loadCodexModelUsageInBackground(home, from, to);
     } catch (_) {
       return null;
     }

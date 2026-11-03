@@ -10,6 +10,9 @@ class DesktopIntegration {
 
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
 
+  /// Whether the tray panel window has rounded corners; never on web.
+  final ValueNotifier<bool> panelRounded = ValueNotifier(false);
+
   /// True while the (custom-drawn) title bar is in use; never on web.
   bool get hasCustomChrome => false;
 
@@ -20,6 +23,9 @@ class DesktopIntegration {
   bool get needsResizeEdges => false;
 
   final ValueNotifier<bool> maximized = ValueNotifier(false);
+
+  /// Window focus; always true where there is no window management.
+  final ValueNotifier<bool> focused = ValueNotifier(true);
 
   Future<void> startDragging() async {}
 

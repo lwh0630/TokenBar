@@ -806,7 +806,9 @@ class HistorySkeleton extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: const LinearProgressIndicator(minHeight: 2),
+            // Own layer: the indeterminate bar repaints every frame and must not drag
+            // the surrounding glass card (and page) along with it.
+            child: const RepaintBoundary(child: LinearProgressIndicator(minHeight: 2)),
           ),
           const SizedBox(height: 14),
           Row(

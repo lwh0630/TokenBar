@@ -25,6 +25,90 @@ ImageFilter glassFilter(double blur) {
   );
 }
 
+// ----------------------------------------------------------------- motion
+
+/// Tells the glass below it that its page is currently being slid in or out by a
+/// route transition. While that is true every [BackdropFilter] is switched off
+/// (`enabled: false`: no offscreen layer, no blur pass) and only the translucent
+/// fill is drawn. Over the soft background the difference is barely visible, but a
+/// dashboard full of cards plus the sidebar would otherwise re-blur a window-sized
+/// area a dozen times per frame, which is what made page changes stutter.
+///
+/// The widget tree is unchanged by the flag (only `enabled` flips), so no state is lost.
+class GlassMotionScope extends InheritedWidget {
+  const GlassMotionScope({super.key, required this.moving, required super.child});
+
+  final bool moving;
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<GlassMotionScope>()?.moving ?? false;
+
+  @override
+  bool updateShouldNotify(GlassMotionScope old) => old.moving != moving;
+}
+
+/// Feeds [GlassMotionScope] from the animations of one route: moving while either
+/// the route's own push / pop or the covering route's push / pop is running.
+/// Listens to status changes only, so it does not rebuild every frame.
+class GlassMotionTracker extends StatefulWidget {
+  const GlassMotionTracker({
+    super.key,
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Animation<double> secondaryAnimation;
+  final Widget child;
+
+  @override
+  State<GlassMotionTracker> createState() => _GlassMotionTrackerState();
+}
+
+class _GlassMotionTrackerState extends State<GlassMotionTracker> {
+  bool _moving = false;
+
+  static bool _running(Animation<double> a) =>
+      a.status == AnimationStatus.forward || a.status == AnimationStatus.reverse;
+
+  @override
+  void initState() {
+    super.initState();
+    _moving = _running(widget.animation) || _running(widget.secondaryAnimation);
+    widget.animation.addStatusListener(_onStatus);
+    widget.secondaryAnimation.addStatusListener(_onStatus);
+  }
+
+  @override
+  void didUpdateWidget(GlassMotionTracker old) {
+    super.didUpdateWidget(old);
+    if (old.animation != widget.animation) {
+      old.animation.removeStatusListener(_onStatus);
+      widget.animation.addStatusListener(_onStatus);
+    }
+    if (old.secondaryAnimation != widget.secondaryAnimation) {
+      old.secondaryAnimation.removeStatusListener(_onStatus);
+      widget.secondaryAnimation.addStatusListener(_onStatus);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.animation.removeStatusListener(_onStatus);
+    widget.secondaryAnimation.removeStatusListener(_onStatus);
+    super.dispose();
+  }
+
+  void _onStatus(AnimationStatus _) {
+    final moving = _running(widget.animation) || _running(widget.secondaryAnimation);
+    if (moving != _moving) setState(() => _moving = moving);
+  }
+
+  @override
+  Widget build(BuildContext context) => GlassMotionScope(moving: _moving, child: widget.child);
+}
+
 // --------------------------------------------------------------- painters
 
 /// Soft drop shadow drawn only *outside* the shape, so it does not darken the
@@ -173,6 +257,7 @@ class GlassSurface extends StatelessWidget {
       child: ClipRRect(
         borderRadius: shape,
         child: BackdropFilter(
+          enabled: !GlassMotionScope.of(context),
           filter: glassFilter(blur),
           child: CustomPaint(
             foregroundPainter: _RimPainter(
@@ -294,8 +379,13 @@ class GlassCard extends StatelessWidget {
   final bool clip;
   final double blur;
 
-  Widget _maybeBlur(Widget child) =>
-      blur <= 0 ? child : BackdropFilter(filter: glassFilter(blur), child: child);
+  Widget _maybeBlur(BuildContext context, Widget child) => blur <= 0
+      ? child
+      : BackdropFilter(
+          enabled: !GlassMotionScope.of(context),
+          filter: glassFilter(blur),
+          child: child,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +417,7 @@ class GlassCard extends StatelessWidget {
             // A transparent Material under the tinted fill keeps ListTile / InkWell
             // children from painting their ink behind the fill.
             child: _maybeBlur(
+              context,
               ColoredBox(
                 color: g.fill,
                 child: Material(type: MaterialType.transparency, child: content),

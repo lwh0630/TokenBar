@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:sqlite3/sqlite3.dart';
 
@@ -100,6 +101,12 @@ Stream<String> readLines(String path) =>
         .openRead()
         .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter());
+
+/// Runs [task] on a short-lived background isolate so heavy parsing (session logs can be
+/// many megabytes) never blocks the UI thread. [task] and its result must be sendable: only
+/// capture plain values (strings, dates), never `this` of an object holding a client or
+/// controller.
+Future<T> runInBackground<T>(FutureOr<T> Function() task) => Isolate.run(task);
 
 Future<void> writeTextFileAtomic(String path, String contents) async {
   final target = File(path);

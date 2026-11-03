@@ -4,6 +4,7 @@ import 'dart:ui' show Offset, Rect, Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_retriever/screen_retriever.dart';
@@ -38,6 +39,12 @@ class DesktopIntegration with TrayListener, WindowListener {
   /// (frameless, always on top, anchored to the tray icon).
   final ValueNotifier<bool> panelMode = ValueNotifier(false);
 
+  /// True while the panel window really has rounded corners (Windows 11), so the
+  /// panel draws a rounded outline that matches; false keeps the square outline.
+  final ValueNotifier<bool> panelRounded = ValueNotifier(false);
+
+  static const _windowChannel = MethodChannel('tokenbar/window');
+
   /// The main window has no native title bar: TokenBar draws its own (see
   /// `ui/window_chrome.dart`). macOS keeps its traffic lights, Windows / Linux get
   /// custom caption buttons.
@@ -50,6 +57,24 @@ class DesktopIntegration with TrayListener, WindowListener {
   bool get needsResizeEdges => supported && Platform.isLinux;
 
   final ValueNotifier<bool> maximized = ValueNotifier(false);
+
+  /// Whether the window has keyboard focus. Cosmetic animation (the drifting
+  /// background) pauses while it is false: a static window needs no frames at all, so
+  /// it costs no CPU / GPU while the user works in another app.
+  final ValueNotifier<bool> focused = ValueNotifier(true);
+
+  /// Turns frame production on or off for the whole app. A window hidden to the tray or
+  /// minimized must not keep running the engine: on Windows the embedder does not report
+  /// the `hidden` lifecycle state for `windowManager.hide()`, so frames (and the
+  /// ambient ticker) kept running at full rate behind the scenes, using ~5 % CPU.
+  /// Reporting the state ourselves makes the framework stop scheduling frames, pause
+  /// the ambient background and skip semantics until the window is shown again.
+  void _setRendering(bool on) {
+    // ignore: invalid_use_of_protected_member
+    WidgetsBinding.instance.handleAppLifecycleStateChanged(
+      on ? AppLifecycleState.resumed : AppLifecycleState.hidden,
+    );
+  }
 
   Future<void> startDragging() => windowManager.startDragging();
 
@@ -327,6 +352,7 @@ class DesktopIntegration with TrayListener, WindowListener {
       if (panelMode.value) {
         panelMode.value = false;
         await windowManager.hide();
+        await _setPanelCorners(false);
         await windowManager.setAlwaysOnTop(false);
         await windowManager.setSkipTaskbar(false);
         await windowManager.setTitleBarStyle(
@@ -343,6 +369,7 @@ class DesktopIntegration with TrayListener, WindowListener {
           await windowManager.center();
         }
       }
+      _setRendering(true);
       if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.show();
       await windowManager.focus();
@@ -351,27 +378,59 @@ class DesktopIntegration with TrayListener, WindowListener {
     }
   }
 
-  /// Tray icon click: toggle the panel (or focus the main window if it is open).
+  /// Tray icon clicks step through three states: nothing -> small panel -> full
+  /// window -> hidden. A quick double click therefore ends on the full window.
   Future<void> _onTrayClick() async {
-    if (_panelBusy) return;
+    if (_panelBusy) {
+      // Second click of a double click while the panel is still opening: open the
+      // full window as soon as the panel is up.
+      if (_showingPanel) _expandAfterPanel = true;
+      return;
+    }
+    final clickedAt = DateTime.now();
     final visible = await windowManager.isVisible();
-    if (visible && !panelMode.value) {
+    if (visible && panelMode.value) {
       await showMainWindow();
       return;
     }
-    if (visible && panelMode.value) {
-      await hidePanel();
+    if (visible) {
+      // The click itself takes the focus away from the window, so "was it focused?"
+      // also counts a blur that happened a moment ago. A window that was behind
+      // other windows is brought forward instead of hidden.
+      final wasFocused = focused.value || clickedAt.difference(_blurredAt) < _clickBlurWindow;
+      if (wasFocused) {
+        await hideMainWindow();
+      } else {
+        await showMainWindow();
+      }
       return;
     }
-    // Clicking the tray icon blurs (and hides) the panel just before this
-    // handler runs; ignore that click so the panel does not instantly reopen.
-    if (DateTime.now().difference(_panelHiddenAt) < const Duration(milliseconds: 350)) return;
+    // Clicking the tray icon blurs (and hides) the panel just before this handler
+    // runs, so a click right after the panel disappeared is the "second click".
+    if (clickedAt.difference(_panelHiddenAt) < _clickBlurWindow) {
+      await showMainWindow();
+      return;
+    }
     await showPanel();
+  }
+
+  /// How long after a blur / auto-hide a tray click still counts as its cause.
+  static const _clickBlurWindow = Duration(milliseconds: 350);
+
+  DateTime _blurredAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _showingPanel = false;
+  bool _expandAfterPanel = false;
+
+  /// Hides the full window to the tray (same as its close button with "minimize to tray").
+  Future<void> hideMainWindow() async {
+    await windowManager.hide();
+    _setRendering(false);
   }
 
   Future<void> showPanel() async {
     if (!supported || !_trayReady) return;
     _panelBusy = true;
+    _showingPanel = true;
     try {
       if (!panelMode.value) {
         _mainBounds = await windowManager.getBounds();
@@ -382,20 +441,41 @@ class DesktopIntegration with TrayListener, WindowListener {
         await windowManager.setSkipTaskbar(true);
         await windowManager.setAlwaysOnTop(true);
       }
+      await _setPanelCorners(true);
       _anchor = await screenRetriever.getCursorScreenPoint();
       await _layoutPanel();
+      _setRendering(true);
       await windowManager.show();
       await windowManager.focus();
     } catch (e) {
       debugPrint('show panel failed: $e');
     } finally {
       _panelBusy = false;
+      _showingPanel = false;
+    }
+    if (_expandAfterPanel) {
+      _expandAfterPanel = false;
+      await showMainWindow();
+    }
+  }
+
+  /// Rounds the corners of the panel window (Windows 11; see `windows/runner`).
+  /// [panelRounded] tells the panel whether to draw a matching rounded outline.
+  Future<void> _setPanelCorners(bool round) async {
+    if (!Platform.isWindows) return;
+    try {
+      panelRounded.value =
+          round && (await _windowChannel.invokeMethod<bool>('setRoundedCorners', round) ?? false);
+    } catch (e) {
+      panelRounded.value = false;
+      debugPrint('rounded corners unavailable: $e');
     }
   }
 
   Future<void> hidePanel() async {
     _panelHiddenAt = DateTime.now();
     await windowManager.hide();
+    _setRendering(false);
   }
 
   /// Top-left corner for the panel: centred on the cursor (which is over the
@@ -489,15 +569,31 @@ class DesktopIntegration with TrayListener, WindowListener {
   void onWindowUnmaximize() => maximized.value = false;
 
   @override
+  void onWindowFocus() {
+    focused.value = true;
+    // A focused window is on screen, whatever path showed it.
+    _setRendering(true);
+  }
+
+  @override
   void onWindowBlur() {
+    focused.value = false;
+    _blurredAt = DateTime.now();
     if (panelMode.value && !_panelBusy) hidePanel();
   }
+
+  @override
+  void onWindowMinimize() => _setRendering(false);
+
+  @override
+  void onWindowRestore() => _setRendering(true);
 
   @override
   void onWindowClose() async {
     if (_quitting) return;
     if (_minimizeToTray && _trayReady) {
       await windowManager.hide();
+      _setRendering(false);
     } else {
       await _quit();
     }

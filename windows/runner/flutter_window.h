@@ -38,6 +38,10 @@ class FlutterWindow : public Win32Window {
   // knows about tray-panel mode and restores the right layout).
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> instance_channel_;
 
+  // Dart -> native channel for window styling the window_manager plugin does
+  // not offer (rounded corners of the tray panel).
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> window_channel_;
+
   // Registered window message sent by a second launch (see main.cpp).
   UINT activate_message_;
 };
