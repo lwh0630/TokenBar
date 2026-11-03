@@ -36,7 +36,11 @@
 **桌面端**
 
 <p align="center">
-  <img src="docs/screenshots/zh/windows-dashboard.png" alt="Windows 上的额度总览" width="49%">
+  <img src="docs/screenshots/zh/windows-dashboard.png" alt="Windows 上的额度总览（浅色）" width="49%">
+  <img src="docs/screenshots/zh/windows-dashboard-dark.png" alt="Windows 上的额度总览（深色）" width="49%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/zh/windows-settings-dark.png" alt="设置页与背景预设（深色）" width="49%">
   <img src="docs/screenshots/zh/windows-history.png" alt="Windows 上的堆叠式使用历史" width="49%">
 </p>
 <p align="center">
@@ -46,9 +50,10 @@
 **移动端**
 
 <p align="center">
-  <img src="docs/screenshots/zh/android-dashboard.png" alt="Android 额度总览" width="26%">
-  <img src="docs/screenshots/zh/android-detail.png" alt="Android 账户详情" width="26%">
-  <img src="docs/screenshots/zh/android-history.png" alt="Android 使用历史" width="26%">
+  <img src="docs/screenshots/zh/android-dashboard.png" alt="Android 额度总览" width="23%">
+  <img src="docs/screenshots/zh/android-settings.png" alt="Android 设置页" width="23%">
+  <img src="docs/screenshots/zh/android-detail.png" alt="Android 账户详情" width="23%">
+  <img src="docs/screenshots/zh/android-history.png" alt="Android 使用历史" width="23%">
 </p>
 
 ## 功能
@@ -255,7 +260,7 @@ xattr -dr com.apple.quarantine /Applications/TokenBar.app
 2. 在**账户 → 添加账户**中添加其他服务：选择服务（支持搜索），粘贴 Key 或 Cookie，保存。同一服务可以有多个账户（例如不同的 `CODEX_HOME` 目录）。
 3. 总览页每隔几分钟自动刷新（可调整）。点账户可查看各窗口详情和历史。
 
-**托盘小面板（桌面端）**：点击托盘图标弹出，列出每个账户最紧张的两个额度和重置倒计时，失去焦点自动收起；点**打开 TokenBar**回到主窗口。
+**托盘小面板（桌面端）**：点击托盘图标弹出，列出每个账户最紧张的两个额度和重置倒计时，失去焦点自动收起；点**打开 TokenBar**回到主窗口。连续点击托盘图标会依次切换：小面板 → 完整窗口 → 隐藏，所以快速双击会直接打开完整窗口。Windows 11 上小面板带圆角。
 
 **使用历史**：在账户页选择 24 小时、7 天或 30 天。每根柱子是一个时间段内新增的用量，按分项堆叠：
 

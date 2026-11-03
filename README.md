@@ -36,19 +36,25 @@ English | [简体中文](README.zh-CN.md)
 **Desktop**
 
 <p align="center">
-  <img src="docs/screenshots/windows-dashboard.png" alt="TokenBar dashboard on Windows" width="49%">
+  <img src="docs/screenshots/windows-dashboard.png" alt="TokenBar dashboard on Windows, light theme" width="49%">
+  <img src="docs/screenshots/windows-dashboard-dark.png" alt="TokenBar dashboard on Windows, dark theme" width="49%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/windows-settings-dark.png" alt="TokenBar settings with the background presets, dark theme" width="49%">
   <img src="docs/screenshots/windows-history.png" alt="TokenBar stacked usage history on Windows" width="49%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/windows-tray-panel.png" alt="Tray panel" width="26%">
+  <img src="docs/screenshots/windows-tray-panel.png" alt="Tray panel, light theme" width="26%">
+  <img src="docs/screenshots/windows-tray-panel-dark.png" alt="Tray panel, dark theme" width="26%">
 </p>
 
 **Mobile**
 
 <p align="center">
-  <img src="docs/screenshots/android-dashboard.png" alt="Dashboard on Android" width="26%">
-  <img src="docs/screenshots/android-detail.png" alt="Account detail on Android" width="26%">
-  <img src="docs/screenshots/android-history.png" alt="Usage history on Android" width="26%">
+  <img src="docs/screenshots/android-dashboard.png" alt="Dashboard on Android" width="23%">
+  <img src="docs/screenshots/android-settings.png" alt="Settings on Android" width="23%">
+  <img src="docs/screenshots/android-detail.png" alt="Account detail on Android" width="23%">
+  <img src="docs/screenshots/android-history.png" alt="Usage history on Android" width="23%">
 </p>
 
 > The app interface is available in Simplified Chinese and English. Switch in **Settings → Language**; the default follows your system language (Chinese systems get Chinese, everything else gets English). Text that comes from the provider integrations (setup hints, some field names and error messages) is still Chinese for now, see the [roadmap](#roadmap). Provider names, plan names and numbers are shown as the providers report them.
@@ -257,7 +263,7 @@ Runtime libraries: GTK 3, `libsecret` (credential storage, with a running keyrin
 2. Open **Accounts → Add account** to add anything else: pick a service (the list is searchable), paste the key or cookie, save. Several accounts of the same service are fine (for example, different `CODEX_HOME` directories).
 3. The dashboard refreshes every few minutes (configurable). Tap an account for per-window detail and history.
 
-**Tray panel (desktop).** Click the tray icon to open it. It lists each account's two tightest windows with reset countdowns, closes when it loses focus, and **Open TokenBar** brings back the main window.
+**Tray panel (desktop).** Click the tray icon to open it. It lists each account's two tightest windows with reset countdowns, closes when it loses focus, and **Open TokenBar** brings back the main window. Clicking the tray icon again steps through the states: panel → full window → hidden, so a quick double click opens the full window directly. On Windows 11 the panel has rounded corners.
 
 **Usage history.** On an account's page choose 24 hours, 7 days or 30 days. Each bar is the usage added in a time slot, stacked by item:
 
