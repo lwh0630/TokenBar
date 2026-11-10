@@ -520,6 +520,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get minimizeToTray => 'Minimize to tray when closing the window';
 
   @override
+  String get hideDockIcon => 'Menu bar only (hide the Dock icon)';
+
+  @override
+  String get hideDockIconHint =>
+      'Open the window or quit from the menu bar icon; ⌘Q is unavailable while the Dock icon is hidden.';
+
+  @override
   String get trayDisplay => 'Show in tray';
 
   @override

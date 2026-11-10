@@ -232,6 +232,8 @@
   "sectionDesktop": "桌面",
   "launchAtStartup": "开机自动启动",
   "minimizeToTray": "关闭窗口时最小化到托盘",
+  "hideDockIcon": "仅在菜单栏显示（隐藏 Dock 图标）",
+  "hideDockIconHint": "隐藏后可从菜单栏图标打开窗口或退出；此时 ⌘Q 不可用。",
   "trayDisplay": "托盘显示",
   "trayDisplayHint": "托盘图标（以及 macOS 菜单栏文字）显示哪个账户的剩余额度。",
   "trayDisplayAuto": "自动（最紧张的账户）",

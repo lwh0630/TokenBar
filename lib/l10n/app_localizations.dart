@@ -945,6 +945,18 @@ abstract class AppLocalizations {
   /// **'关闭窗口时最小化到托盘'**
   String get minimizeToTray;
 
+  /// No description provided for @hideDockIcon.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅在菜单栏显示（隐藏 Dock 图标）'**
+  String get hideDockIcon;
+
+  /// No description provided for @hideDockIconHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏后可从菜单栏图标打开窗口或退出；此时 ⌘Q 不可用。'**
+  String get hideDockIconHint;
+
   /// No description provided for @trayDisplay.
   ///
   /// In zh, this message translates to:

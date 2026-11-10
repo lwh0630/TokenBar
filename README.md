@@ -263,7 +263,7 @@ Runtime libraries: GTK 3, `libsecret` (credential storage, with a running keyrin
 2. Open **Accounts → Add account** to add anything else: pick a service (the list is searchable), paste the key or cookie, save. Several accounts of the same service are fine (for example, different `CODEX_HOME` directories).
 3. The dashboard refreshes every few minutes (configurable). Tap an account for per-window detail and history.
 
-**Tray panel (desktop).** Click the tray icon to open it. It lists each account's two tightest windows with reset countdowns, closes when it loses focus, and **Open TokenBar** brings back the main window. Clicking the tray icon again steps through the states: panel → full window → hidden, so a quick double click opens the full window directly. On Windows 11 the panel has rounded corners.
+**Tray panel (desktop).** Click the tray icon to open it. It lists each account's two tightest windows with reset countdowns, closes when it loses focus, and **Open TokenBar** brings back the main window. Clicking the tray icon again steps through the states: panel → full window → hidden, so a quick double click opens the full window directly. On Windows 11 the panel has rounded corners. On macOS, Settings → Desktop → *Menu bar only* hides the Dock icon (⌘Q is then unavailable; quit from the tray menu).
 
 **Usage history.** On an account's page choose 24 hours, 7 days or 30 days. Each bar is the usage added in a time slot, stacked by item:
 

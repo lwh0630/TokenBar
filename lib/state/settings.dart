@@ -63,6 +63,7 @@ class AppSettings {
     this.allowClaudeRefresh = false,
     this.launchAtStartup = false,
     this.minimizeToTray = true,
+    this.hideDockIcon = false,
     this.trayAccountId = '',
     this.autoCheckUpdates = true,
     this.skippedVersion = '',
@@ -92,6 +93,9 @@ class AppSettings {
   final bool allowClaudeRefresh;
   final bool launchAtStartup;
   final bool minimizeToTray;
+
+  /// macOS only: run as a menu-bar app without a Dock icon.
+  final bool hideDockIcon;
 
   /// Account the tray icon / menu-bar title follows; empty = the most constrained one.
   final String trayAccountId;
@@ -126,6 +130,7 @@ class AppSettings {
     bool? allowClaudeRefresh,
     bool? launchAtStartup,
     bool? minimizeToTray,
+    bool? hideDockIcon,
     String? trayAccountId,
     bool? autoCheckUpdates,
     String? skippedVersion,
@@ -147,6 +152,7 @@ class AppSettings {
     allowClaudeRefresh: allowClaudeRefresh ?? this.allowClaudeRefresh,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     minimizeToTray: minimizeToTray ?? this.minimizeToTray,
+    hideDockIcon: hideDockIcon ?? this.hideDockIcon,
     trayAccountId: trayAccountId ?? this.trayAccountId,
     autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
     skippedVersion: skippedVersion ?? this.skippedVersion,
@@ -170,6 +176,7 @@ class AppSettings {
     'allowClaudeRefresh': allowClaudeRefresh,
     'launchAtStartup': launchAtStartup,
     'minimizeToTray': minimizeToTray,
+    'hideDockIcon': hideDockIcon,
     'trayAccountId': trayAccountId,
     'autoCheckUpdates': autoCheckUpdates,
     'skippedVersion': skippedVersion,
@@ -206,6 +213,7 @@ class AppSettings {
       allowClaudeRefresh: pick<bool>('allowClaudeRefresh', d.allowClaudeRefresh),
       launchAtStartup: pick<bool>('launchAtStartup', d.launchAtStartup),
       minimizeToTray: pick<bool>('minimizeToTray', d.minimizeToTray),
+      hideDockIcon: pick<bool>('hideDockIcon', d.hideDockIcon),
       trayAccountId: pick<String>('trayAccountId', d.trayAccountId),
       autoCheckUpdates: pick<bool>('autoCheckUpdates', d.autoCheckUpdates),
       skippedVersion: pick<String>('skippedVersion', d.skippedVersion),

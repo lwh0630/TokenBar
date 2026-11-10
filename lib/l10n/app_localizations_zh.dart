@@ -494,6 +494,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get minimizeToTray => '关闭窗口时最小化到托盘';
 
   @override
+  String get hideDockIcon => '仅在菜单栏显示（隐藏 Dock 图标）';
+
+  @override
+  String get hideDockIconHint => '隐藏后可从菜单栏图标打开窗口或退出；此时 ⌘Q 不可用。';
+
+  @override
   String get trayDisplay => '托盘显示';
 
   @override

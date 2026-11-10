@@ -148,6 +148,8 @@
   "sectionDesktop": "Desktop",
   "launchAtStartup": "Launch at startup",
   "minimizeToTray": "Minimize to tray when closing the window",
+  "hideDockIcon": "Menu bar only (hide the Dock icon)",
+  "hideDockIconHint": "Open the window or quit from the menu bar icon; ⌘Q is unavailable while the Dock icon is hidden.",
   "trayDisplay": "Show in tray",
   "trayDisplayHint": "The account whose remaining quota the tray icon (and macOS menu-bar title) shows.",
   "trayDisplayAuto": "Auto (most constrained)",

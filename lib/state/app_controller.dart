@@ -457,6 +457,9 @@ class AppController extends ChangeNotifier {
     if (prev.minimizeToTray != next.minimizeToTray) {
       await desktop.setMinimizeToTray(next.minimizeToTray);
     }
+    if (prev.hideDockIcon != next.hideDockIcon) {
+      await desktop.setHideDockIcon(next.hideDockIcon);
+    }
     if (prev.trayAccountId != next.trayAccountId) {
       await desktop.setTrayAccount(next.trayAccountId);
     }

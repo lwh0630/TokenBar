@@ -145,6 +145,13 @@ class SettingsPage extends StatelessWidget {
                         value: s.minimizeToTray,
                         onChanged: (v) => update(s.copyWith(minimizeToTray: v)),
                       ),
+                      if (defaultTargetPlatform == TargetPlatform.macOS)
+                        SwitchListTile(
+                          title: Text(l.hideDockIcon),
+                          subtitle: Text(l.hideDockIconHint),
+                          value: s.hideDockIcon,
+                          onChanged: (v) => update(s.copyWith(hideDockIcon: v)),
+                        ),
                       ListTile(
                         title: Text(l.trayDisplay),
                         subtitle: Text(l.trayDisplayHint),

@@ -46,6 +46,7 @@ class DesktopIntegration {
     required AppLocalizations l10n,
     void Function(String accountId)? onSelectTrayAccount,
     String trayAccountId = '',
+    bool hideDockIcon = false,
   }) async {}
 
   Future<void> update(List<UsageSnapshot> snapshots, AppLocalizations l10n) async {}
@@ -53,6 +54,8 @@ class DesktopIntegration {
   Future<void> setTrayAccount(String accountId) async {}
 
   Future<void> setMinimizeToTray(bool value) async {}
+
+  Future<void> setHideDockIcon(bool value) async {}
 
   Future<void> setLaunchAtStartup(bool value) async {}
 

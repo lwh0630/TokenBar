@@ -53,6 +53,7 @@ Future<void> main(List<String> args) async {
   await desktop.init(
     onRefresh: controller.refresh,
     minimizeToTray: settings.minimizeToTray,
+    hideDockIcon: settings.hideDockIcon,
     l10n: l10n,
     trayAccountId: settings.trayAccountId,
     onSelectTrayAccount: (id) =>

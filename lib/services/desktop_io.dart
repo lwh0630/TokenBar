@@ -32,6 +32,7 @@ class DesktopIntegration with TrayListener, WindowListener {
   List<UsageSnapshot> _lastSnapshots = const [];
   AppLocalizations? _l10n;
   bool _minimizeToTray = true;
+  bool _hideDockIcon = false;
   bool _trayReady = false;
   bool _quitting = false;
   String? _lastIconKey;
@@ -179,6 +180,7 @@ class DesktopIntegration with TrayListener, WindowListener {
     required AppLocalizations l10n,
     void Function(String accountId)? onSelectTrayAccount,
     String trayAccountId = '',
+    bool hideDockIcon = false,
   }) async {
     if (!supported) return;
     _onRefresh = onRefresh;
@@ -186,6 +188,7 @@ class DesktopIntegration with TrayListener, WindowListener {
     _trayAccountId = trayAccountId;
     _l10n = l10n;
     _minimizeToTray = minimizeToTray;
+    _hideDockIcon = Platform.isMacOS && hideDockIcon;
 
     // A second launch (Windows) or a Dock-icon reopen (macOS) asks the running
     // instance to come forward; the native side calls this channel.
@@ -202,6 +205,9 @@ class DesktopIntegration with TrayListener, WindowListener {
       title: 'TokenBar',
       titleBarStyle: TitleBarStyle.hidden,
       windowButtonVisibility: Platform.isMacOS,
+      // macOS: no Dock icon (accessory activation policy), applied before the
+      // window is shown so it still gets keyboard focus on a cold start.
+      skipTaskbar: _hideDockIcon ? true : null,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.show();
@@ -389,6 +395,22 @@ class DesktopIntegration with TrayListener, WindowListener {
 
   Future<void> setMinimizeToTray(bool value) async => _minimizeToTray = value;
 
+  /// macOS: show / hide the Dock icon (`setSkipTaskbar` toggles the app between
+  /// the `accessory` and `regular` activation policies). No-op elsewhere.
+  Future<void> setHideDockIcon(bool value) async {
+    if (!supported || !Platform.isMacOS || _hideDockIcon == value) return;
+    _hideDockIcon = value;
+    // The tray panel already runs as an accessory; showMainWindow applies the
+    // preference when it leaves the panel.
+    if (panelMode.value) return;
+    await windowManager.setSkipTaskbar(value);
+    // Changing the policy can drop the window behind other apps.
+    if (await windowManager.isVisible()) {
+      await windowManager.show();
+      await windowManager.focus();
+    }
+  }
+
   Future<void> setLaunchAtStartup(bool value) async {
     if (!supported) return;
     try {
@@ -413,7 +435,9 @@ class DesktopIntegration with TrayListener, WindowListener {
         await windowManager.hide();
         await _setPanelCorners(false);
         await windowManager.setAlwaysOnTop(false);
-        await windowManager.setSkipTaskbar(false);
+        // On macOS this switches the activation policy, so keep the Dock icon
+        // hidden when the user asked for that.
+        await windowManager.setSkipTaskbar(_hideDockIcon);
         await windowManager.setTitleBarStyle(
           TitleBarStyle.hidden,
           windowButtonVisibility: Platform.isMacOS,
