@@ -7,9 +7,44 @@ import 'package:tokenbar_core/tokenbar_core.dart';
 
 import '../state/settings.dart';
 
+/// Where secrets are kept (the system secure storage in production).
+abstract class SecretStore {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+/// [SecretStore] backed by `flutter_secure_storage`.
+class SecureSecretStore implements SecretStore {
+  const SecureSecretStore();
+
+  // The macOS release build is only ad-hoc signed (no Apple developer account),
+  // so it has no `keychain-access-groups` entitlement and the Data Protection
+  // keychain (the plugin's default) rejects every write with -34018 while reads
+  // return "not found". The classic login keychain works without entitlements.
+  static const _secure = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
+
+  @override
+  Future<String?> read(String key) => _secure.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) => _secure.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _secure.delete(key: key);
+}
+
 /// Settings + accounts in shared_preferences, secrets in secure storage.
 class Persistence {
-  Persistence._(this._prefs, {this.useSecureStorage = true});
+  Persistence._(this._prefs, {this.useSecureStorage = true, SecretStore? store})
+    : _store = store ?? const SecureSecretStore();
+
+  /// Test hook: open with a custom secret store (e.g. one that fails like an
+  /// ad-hoc signed macOS build does).
+  @visibleForTesting
+  Persistence.withStore(SharedPreferences prefs, SecretStore store) : this._(prefs, store: store);
 
   static Future<Persistence> open() async => Persistence._(await SharedPreferences.getInstance());
 
@@ -23,7 +58,7 @@ class Persistence {
 
   final SharedPreferences _prefs;
   final bool useSecureStorage;
-  static const _secure = FlutterSecureStorage();
+  final SecretStore _store;
 
   static const _settingsKey = 'tokenbar.settings';
   static const _accountsKey = 'tokenbar.accounts';
@@ -32,40 +67,56 @@ class Persistence {
   static const _serverTokenKey = 'tokenbar.serverToken';
   static String _secretKey(String accountId) => 'tokenbar.secret.$accountId';
 
+  /// A `fallback.<key>` entry only exists while the secure store could not take
+  /// the value (a successful secure write removes it), so when present it is the
+  /// freshest copy and wins over whatever the secure store returns.
   Future<String?> _readSecret(String key) async {
-    if (!useSecureStorage) return _prefs.getString('fallback.$key');
+    final fallback = _prefs.getString('fallback.$key');
+    if (!useSecureStorage) return fallback;
+    if (fallback != null && fallback.isNotEmpty) {
+      // Try to move it into the secure store, so the plain-text copy goes away
+      // as soon as the store works again.
+      await _writeSecret(key, fallback);
+      return fallback;
+    }
     try {
-      return await _secure.read(key: key);
+      // Some platforms report "not found" / a missing entitlement as null
+      // instead of throwing; null just means "no secret".
+      return await _store.read(key);
     } catch (e) {
       // Secure storage can be unavailable (e.g. Linux without libsecret,
-      // insecure web context); fall back to prefs so the app keeps working.
+      // insecure web context); the app keeps working without it.
       debugPrint('secure storage read failed: $e');
-      return _prefs.getString('fallback.$key');
+      return null;
     }
   }
 
   Future<void> _writeSecret(String key, String? value) async {
-    if (!useSecureStorage) {
-      if (value == null || value.isEmpty) {
-        await _prefs.remove('fallback.$key');
-      } else {
-        await _prefs.setString('fallback.$key', value);
+    final fallbackKey = 'fallback.$key';
+    final empty = value == null || value.isEmpty;
+    if (useSecureStorage) {
+      try {
+        if (empty) {
+          await _store.delete(key);
+        } else {
+          await _store.write(key, value);
+          // A write can "succeed" without persisting (or throw on some
+          // platforms); only trust it when it reads back identically.
+          if (await _store.read(key) != value) {
+            throw StateError('secure storage did not persist the value');
+          }
+        }
+        await _prefs.remove(fallbackKey);
+        return;
+      } catch (e) {
+        debugPrint('secure storage write failed: $e');
+        // An empty value still falls through to clear the fallback below.
       }
-      return;
     }
-    try {
-      if (value == null || value.isEmpty) {
-        await _secure.delete(key: key);
-      } else {
-        await _secure.write(key: key, value: value);
-      }
-    } catch (e) {
-      debugPrint('secure storage write failed: $e');
-      if (value == null || value.isEmpty) {
-        await _prefs.remove('fallback.$key');
-      } else {
-        await _prefs.setString('fallback.$key', value);
-      }
+    if (empty) {
+      await _prefs.remove(fallbackKey);
+    } else {
+      await _prefs.setString(fallbackKey, value);
     }
   }
 
