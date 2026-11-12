@@ -62,6 +62,28 @@ void main() {
       expect(cookieValue('a=1; session=xyz', 'session'), 'xyz');
     });
 
+    test('cookie normalization strips copy artifacts that break the header', () {
+      // Tab-separated `Cookie` label, as copied from some DevTools layouts.
+      expect(normalizeCookieHeader('Cookie\tSEARCH_SAMESITE=x; NID=y'), 'SEARCH_SAMESITE=x; NID=y');
+      // Line-wrapped copies stay one header; a bare pair is never mistaken for a label.
+      expect(normalizeCookieHeader('a=1;\nb=2'), 'a=1; b=2');
+      expect(normalizeCookieHeader('cookie=plain'), 'cookie=plain');
+      // Control and non-ASCII characters (zero-width, full-width, BOM) are dropped.
+      expect(normalizeCookieHeader('a=1; b=2\u200b\u3000\uff01'), 'a=1; b=2');
+      // Garbage without any pair gets a user-facing error instead of a raw
+      // FormatException from dart:io.
+      expect(
+        () => normalizeCookieHeader('随便粘贴的一句话'),
+        throwsA(isA<ProviderException>().having((e) => e.hint, 'hint', isNotNull)),
+      );
+      // A literal ellipsis means the value was copied from a truncating UI
+      // preview — the middle of the credential is missing, so fail loudly.
+      expect(
+        () => normalizeCookieHeader('a=1; b=2\u2026c=3'),
+        throwsA(isA<ProviderException>().having((e) => e.message, 'message', contains('截断'))),
+      );
+    });
+
     test('gateway URLs: https anywhere, http only on private hosts', () {
       expect(isPrivateHost('192.168.1.5'), isTrue);
       expect(isPrivateHost('example.com'), isFalse);

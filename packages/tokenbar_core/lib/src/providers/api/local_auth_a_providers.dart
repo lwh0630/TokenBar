@@ -304,8 +304,26 @@ class CopilotProvider extends UsageProvider {
 
 const _codeAssistBase = 'https://cloudcode-pa.googleapis.com/v1internal';
 const _geminiWebSignature = '2/dWbCvkVB0X16r9NPnxifeOAAqdCqMf0xeWvau9yPy7g=';
+const _geminiWebOrigin = 'https://gemini.google.com';
+// Public bundle host of the Gemini web app; the usage page import map points
+// here (observed by lobner/gemini-usage).
+const _geminiWebAssetBase = 'https://www.gstatic.com/bg3/boq-bard-web/islands/assets/';
 const _geminiShutdownError = 'Google 已停止个人版 Gemini CLI OAuth（AI Pro / Ultra / 个人账户，2026 年 6 月起）';
 const _geminiShutdownHint = '改用 Workspace / 教育版 / Code Assist 账户，或改用 gemini.google.com 的 Cookie';
+
+/// The usage query was rejected (typically a drifted persisted-query
+/// signature); the caller may re-derive the signature and retry once.
+class GeminiQueryRejected extends ProviderException {
+  GeminiQueryRejected() : super('Gemini 网页查询签名已失效', hint: '将自动重新推导查询签名后重试一次');
+}
+
+/// Finds the UsagePageLoading bundle name in the Gemini app HTML (import map).
+String? findGeminiLoadingBundle(String html) =>
+    RegExp(r'@messages/assets/(UsagePageLoading-[\w-]+\.js)').firstMatch(html)?.group(1);
+
+/// Finds the persisted UsagePageQuery signature in a Gemini web bundle.
+String? findGeminiQueryId(String js) =>
+    RegExp(r'id:`([^`]+)`,metadata:\{\},name:`UsagePageQuery`').firstMatch(js)?.group(1);
 
 class GeminiLocalCredentials {
   const GeminiLocalCredentials({required this.accessToken, this.idToken, this.expiresAt});
@@ -461,7 +479,7 @@ List<RateWindow> parseGeminiQuotaBuckets(Map<String, Object?> json) {
       break;
     }
   }
-  if (data == null) throw ProviderException('Gemini 网页返回了无法识别的数据');
+  if (data == null) throw GeminiQueryRejected();
   final viewer = asMap(data['viewer']);
   if (viewer == null) {
     throw ProviderException(
@@ -498,6 +516,65 @@ List<RateWindow> parseGeminiQuotaBuckets(Map<String, Object?> json) {
   return (plan: asString(usage['subscriptionTier']) == 'TIER1' ? 'Pro' : null, windows: windows);
 }
 
+// ---------------------------------------------------------------- Firefox
+
+/// Hosts whose cookies a gemini.google.com request actually carries.
+const _firefoxGoogleCookieHosts = ['.google.com', 'google.com', 'gemini.google.com'];
+
+/// Reads the live Google session cookies from Firefox's own cookie store.
+///
+/// Google rotates the short-lived `__Secure-1PSIDTS` tokens roughly every 15
+/// minutes, so any pasted static copy stops working within a session. Firefox
+/// keeps cookies in a plain SQLite database (no encryption) and a read-only
+/// open is safe while Firefox runs, so every fetch can use the browser's own
+/// fresh values. Null when no profile holds a Gemini session.
+Future<String?> firefoxGoogleCookieHeader({String? homeDir}) async {
+  final home = homeDir ?? platform.homeDirectory();
+  if (!platform.localAccessSupported || home == null) return null;
+  final String profilesDir;
+  if (platform.isMacOS) {
+    profilesDir = platform.joinPath(
+      platform.joinPath(home, 'Library', 'Application Support'),
+      'Firefox',
+      'Profiles',
+    );
+  } else if (platform.isWindows) {
+    final appData = platform.envVar('APPDATA');
+    if (appData == null) return null;
+    profilesDir = platform.joinPath(appData, 'Mozilla', 'Firefox', 'Profiles');
+  } else {
+    profilesDir = platform.joinPath(home, '.mozilla', 'firefox');
+  }
+  final entries = await platform.listDirectory(profilesDir);
+  if (entries.isEmpty) return null;
+  final placeholders = _firefoxGoogleCookieHosts.map((_) => '?').join(', ');
+  for (final profile in entries) {
+    if (!profile.isDirectory) continue;
+    final dbPath = platform.joinPath(profile.path, 'cookies.sqlite');
+    final rows = await platform.readSqliteRows(
+      dbPath,
+      'SELECT name, value FROM moz_cookies '
+      'WHERE host IN ($placeholders) ORDER BY (host = ?) DESC, name',
+      [..._firefoxGoogleCookieHosts, 'gemini.google.com'],
+    );
+    final seen = <String>{};
+    final pairs = <String>[];
+    var hasSession = false;
+    for (final row in rows) {
+      if (row.length < 2) continue;
+      final name = row[0];
+      final value = row[1];
+      if (name is! String || value is! String || value.isEmpty) continue;
+      if (!seen.add(name)) continue;
+      if (name == '__Secure-1PSID') hasSession = true;
+      pairs.add('$name=$value');
+    }
+    if (!hasSession || pairs.isEmpty) continue;
+    return pairs.join('; ');
+  }
+  return null;
+}
+
 class GeminiProvider extends UsageProvider {
   @override
   String get id => 'gemini';
@@ -513,8 +590,8 @@ class GeminiProvider extends UsageProvider {
 
   @override
   String get setupHint =>
-      '本机模式读取 Gemini CLI 的 ~/.gemini/oauth_creds.json（只读，不刷新，过期后请在 Gemini CLI 里重新登录）。'
-      '手动模式可粘贴 OAuth access token，或 gemini.google.com 的 Cookie（含 Cookie 时走 Gemini 应用用量）。';
+      '推荐：桌面端在 Firefox 登录 gemini.google.com 后自动读取最新凭证（浏览器每 15 分钟轮换令牌，粘贴的静态副本很快失效）。'
+      '也可手动粘贴 gemini.google.com 的 Cookie 或 OAuth access token，但失效后需重新粘贴。';
 
   @override
   List<ProviderField> get fields => const [
@@ -532,6 +609,27 @@ class GeminiProvider extends UsageProvider {
   String get localSourceLabel => '本机 Gemini CLI 登录';
 
   @override
+  String? validateManual(FieldValues values) {
+    final input = values[ProviderField.secretKey];
+    // A bare value is an OAuth access token, not a Cookie header.
+    if (input == null || !input.contains(';')) return null;
+    final String header;
+    try {
+      header = normalizeCookieHeader(input);
+    } on ProviderException catch (e) {
+      return e.message;
+    }
+    // Same session-cookie rule as CodexBar: without one of these the request
+    // is anonymous and every pool reports signed-out.
+    const sessionKeys = ['__Secure-1PSID', '__Secure-3PSID', 'SID'];
+    if (!sessionKeys.any((k) => cookieValue(header, k) != null)) {
+      return 'Cookie 缺少登录会话字段（__Secure-1PSID / __Secure-3PSID / SID）——'
+          '多半是从预览面板复制的显示截断值；请在 Cookie 一行右键「复制值」后重贴';
+    }
+    return null;
+  }
+
+  @override
   Future<bool> hasLocalLogin(AccountConfig account) async {
     try {
       return await _readLocal(account) != null;
@@ -544,12 +642,30 @@ class GeminiProvider extends UsageProvider {
   Future<UsageSnapshot> fetch(AccountConfig account, FetchContext ctx) async {
     if (account.sourceType == SourceType.apiKey) {
       final pasted = FieldValues.of(this, account).secret;
-      if (pasted.contains('=')) return _fetchWeb(account, ctx, pasted);
+      if (pasted.contains('=')) {
+        try {
+          return await _fetchWeb(account, ctx, pasted);
+        } on ProviderException catch (e) {
+          // A pasted copy dies as soon as the browser rotates the PSIDTS
+          // tokens; Firefox's own cookie store always holds live values.
+          if (!_isSignedOut(e)) rethrow;
+          final fresh = await firefoxGoogleCookieHeader(homeDir: account.homeDir);
+          if (fresh == null) rethrow;
+          return await _fetchWeb(account, ctx, fresh, source: 'firefox');
+        }
+      }
       return _fetchOAuth(account, ctx, token: bareToken(pasted), source: 'api-key');
     }
     final creds = await _readLocal(account);
     if (creds == null) {
-      throw ProviderException('未找到 Gemini CLI 登录', hint: '在终端运行 gemini 完成 Google 登录，或改用手动粘贴 Token');
+      final fresh = await firefoxGoogleCookieHeader(homeDir: account.homeDir);
+      if (fresh != null) {
+        return await _fetchWeb(account, ctx, fresh, source: 'firefox');
+      }
+      throw ProviderException(
+        '未找到 Gemini CLI 登录',
+        hint: '在终端运行 gemini 完成 Google 登录，或在 Firefox 登录 gemini.google.com 后刷新，或手动粘贴 Token',
+      );
     }
     if (creds.isExpired(ctx.now())) {
       throw ProviderException('Gemini 登录已过期', hint: '在 Gemini CLI 里重新登录一次（运行 gemini）');
@@ -562,6 +678,8 @@ class GeminiProvider extends UsageProvider {
       idToken: creds.idToken,
     );
   }
+
+  bool _isSignedOut(ProviderException e) => e.message == 'Gemini 网页会话已失效';
 
   Future<GeminiLocalCredentials?> _readLocal(AccountConfig account) async {
     final home = account.homeDir ?? platform.homeDirectory();
@@ -667,37 +785,89 @@ class GeminiProvider extends UsageProvider {
     }
   }
 
-  Future<UsageSnapshot> _fetchWeb(AccountConfig account, FetchContext ctx, String input) async {
+  Future<UsageSnapshot> _fetchWeb(
+    AccountConfig account,
+    FetchContext ctx,
+    String input, {
+    String source = 'web',
+  }) async {
+    final cookie = normalizeCookieHeader(input);
+    UsageSnapshot snapshotFrom(HttpResult r) {
+      if (r.statusCode == 401 ||
+          r.statusCode == 403 ||
+          (r.ok && r.body.trimLeft().startsWith('<'))) {
+        throw ProviderException(
+          'Gemini 网页会话已失效',
+          hint: '在浏览器打开 gemini.google.com/usage 重新登录，再粘贴新的 Cookie',
+        );
+      }
+      checkStatus(displayName, r);
+      final parsed = parseGeminiWebUsage(r.body);
+      return snapshot(account, ctx, plan: parsed.plan, source: source, windows: parsed.windows);
+    }
+
+    try {
+      return snapshotFrom(await _webUsageQuery(ctx, cookie, _geminiWebSignature));
+    } on GeminiQueryRejected {
+      final fresh = await _discoverWebSignature(ctx, cookie);
+      if (fresh == null || fresh == _geminiWebSignature) rethrow;
+      try {
+        return snapshotFrom(await _webUsageQuery(ctx, cookie, fresh));
+      } on GeminiQueryRejected {
+        throw ProviderException('Gemini 网页查询签名已变化且自动推导失败', hint: '请更新 TokenBar，或到项目主页反馈');
+      }
+    }
+  }
+
+  Uri _webUsageUri(String signature) {
     final variables = jsonEncode({
       'g1Request': {
         'entrypoints': ['GEMINI_USAGE_SETTINGS_UPGRADE_BANNER'],
       },
       'workspaceRequest': {'recommendationsForSurfaceRequests': <Object>[]},
     });
-    final uri = Uri.https(
+    return Uri.https(
       'gemini.google.com',
       '/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery',
-      {'query_signature': _geminiWebSignature, 'variables': variables},
+      {'query_signature': signature, 'variables': variables},
     );
-    final r = await sendRequest(
-      ctx,
-      displayName,
-      uri,
-      headers: {
-        'Cookie': normalizeCookieHeader(input),
-        'Referer': 'https://gemini.google.com/usage',
-      },
-      timeout: const Duration(seconds: 15),
-    );
-    if (r.statusCode == 401 || r.statusCode == 403 || (r.ok && r.body.trimLeft().startsWith('<'))) {
-      throw ProviderException(
-        'Gemini 网页会话已失效',
-        hint: '在浏览器打开 gemini.google.com/usage 重新登录，再粘贴新的 Cookie',
+  }
+
+  Future<HttpResult> _webUsageQuery(FetchContext ctx, String cookie, String signature) =>
+      sendRequest(
+        ctx,
+        displayName,
+        _webUsageUri(signature),
+        headers: {'Cookie': cookie, 'Referer': 'https://gemini.google.com/usage'},
+        timeout: const Duration(seconds: 15),
       );
+
+  /// Re-derives the UsagePageQuery signature from the Gemini web app's
+  /// bundles: the app HTML names the UsagePageLoading bundle, which holds the
+  /// persisted query id. Null when any step fails.
+  Future<String?> _discoverWebSignature(FetchContext ctx, String cookie) async {
+    try {
+      final page = await sendRequest(
+        ctx,
+        displayName,
+        Uri.parse('$_geminiWebOrigin/app'),
+        headers: {'Cookie': cookie},
+        timeout: const Duration(seconds: 15),
+      );
+      if (!page.ok) return null;
+      final bundle = findGeminiLoadingBundle(page.body);
+      if (bundle == null) return null;
+      final js = await sendRequest(
+        ctx,
+        displayName,
+        Uri.parse('$_geminiWebAssetBase$bundle'),
+        timeout: const Duration(seconds: 15),
+      );
+      if (!js.ok) return null;
+      return findGeminiQueryId(js.body);
+    } on ProviderException {
+      return null;
     }
-    checkStatus(displayName, r);
-    final parsed = parseGeminiWebUsage(r.body);
-    return snapshot(account, ctx, plan: parsed.plan, source: 'web', windows: parsed.windows);
   }
 }
 

@@ -15,11 +15,11 @@ English | [简体中文](README.zh-CN.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Android%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS-2ea44f)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![Providers](https://img.shields.io/badge/providers-52-8A63D2)
+![Providers](https://img.shields.io/badge/providers-53-8A63D2)
 
 </div>
 
-> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 52 services.
+> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 53 services.
 
 ## Why TokenBar
 
@@ -90,6 +90,9 @@ Three ways to read a service:
 | Codex (ChatGPT) | `~/.codex/auth.json` (run `codex login` first); falls back to `codex app-server` when the token expired | 5-hour, weekly, credits |
 | Claude (Pro / Max) | Claude Code login (`~/.claude/.credentials.json`, Keychain on macOS) | 5-hour, weekly, Opus / Sonnet weekly, extra usage |
 | Cursor | Cursor desktop login (read-only `state.vscdb`) or a pasted cursor.com cookie | Monthly quota, Auto / API split, on-demand usage |
+| Gemini | Firefox login (auto-read, recommended — the browser rotates tokens, so pasted copies die fast), Gemini CLI login (`~/.gemini/oauth_creds.json`, read-only), or a pasted OAuth token / gemini.google.com cookie | Gemini app 5-hour and weekly limits, or Pro / Flash / Flash Lite quota |
+
+For **Gemini**, desktop users can reuse the Gemini CLI's Google login (read-only; since Google stopped serving Gemini CLI OAuth for individual, AI Pro and Ultra accounts in June 2026, this path needs a Workspace, education or Code Assist Standard/Enterprise account). Alternatively paste an OAuth access token from `~/.gemini/oauth_creds.json`, or a `Cookie` header copied from a request to gemini.google.com/usage in your browser's developer tools — the cookie path shows the Gemini app's 5-hour and weekly limits and works for consumer plans. Add it in **Accounts → Add account → Gemini**. Tokens and cookies are never refreshed; re-login in the Gemini CLI or paste a new cookie when they expire. On desktop, when a fetch reports a signed-out session and Firefox holds a live gemini.google.com login, TokenBar automatically reads the session from Firefox's own cookie store (`cookies.sqlite`, plain SQLite, read-only while Firefox runs) — the browser keeps the short-lived session tokens fresh, so this path keeps working without re-pasting. Cookies and tokens are never written back.
 
 <details>
 <summary><b>Official API keys (23)</b></summary>

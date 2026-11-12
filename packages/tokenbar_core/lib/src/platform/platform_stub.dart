@@ -37,6 +37,12 @@ Future<String?> readSqliteText(
   List<Object?> params = const [],
 ]) async => null;
 
+Future<List<List<Object?>>> readSqliteRows(
+  String dbPath,
+  String sql, [
+  List<Object?> params = const [],
+]) async => const [];
+
 Future<String?> findExecutable(String name) async => null;
 
 Future<ProcessOutput?> runProcess(
