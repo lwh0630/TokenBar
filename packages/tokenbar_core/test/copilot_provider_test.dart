@@ -38,7 +38,7 @@ http.Response _json(Object value, [int status = 200]) => http.Response.bytes(
 );
 
 void main() {
-  test('registry enables only Copilot from the unintegrated local-auth group', () {
+  test('registry enables Copilot and Gemini from the local-auth group', () {
     final provider = ProviderRegistry.instance.byId('copilot');
     expect(provider, isA<CopilotProvider>());
     expect(provider!.supportedSources, [SourceType.apiKey]);
@@ -48,7 +48,8 @@ void main() {
     expect(tokenField.isSecure, isTrue);
     expect(tokenField.envVars, ['COPILOT_API_TOKEN']);
     expect(provider.fields.last.key, 'enterpriseHost');
-    for (final id in ['gemini', 'kiro', 'jetbrains', 'amp', 'kilo', 'hyper']) {
+    expect(ProviderRegistry.instance.byId('gemini'), isA<GeminiProvider>());
+    for (final id in ['kiro', 'jetbrains', 'amp', 'kilo', 'hyper']) {
       expect(ProviderRegistry.instance.byId(id), isNull, reason: id);
     }
   });

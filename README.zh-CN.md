@@ -15,15 +15,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Android%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS-2ea44f)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![Providers](https://img.shields.io/badge/providers-52-8A63D2)
+![Providers](https://img.shields.io/badge/providers-53-8A63D2)
 
 </div>
 
-> 灵感来自 macOS 上的 [CodexBar](https://github.com/steipete/CodexBar)。TokenBar 把同样的思路带到 Windows、Android、Linux 和 iOS（也提供 macOS 版本），并支持 52 个服务。
+> 灵感来自 macOS 上的 [CodexBar](https://github.com/steipete/CodexBar)。TokenBar 把同样的思路带到 Windows、Android、Linux 和 iOS（也提供 macOS 版本），并支持 53 个服务。
 
 ## 为什么用 TokenBar
 
-- **一处看全部。** Codex、Claude、Cursor、OpenRouter、DeepSeek、z.ai 等 52 个服务：剩余额度、余额、重置倒计时，以及你消耗得是否比匀速更快。
+- **一处看全部。** Codex、Claude、Cursor、OpenRouter、DeepSeek、z.ai 等 53 个服务：剩余额度、余额、重置倒计时，以及你消耗得是否比匀速更快。
 - **中间没有第三方。** 应用在你的设备上直接请求各服务商自己的接口。可选的同步服务器只接收额度*快照*，从不接触凭证。
 - **复用你已有的登录。** 桌面端只读取官方 CLI / 客户端已保存的登录状态，其他场景粘贴 API Key 或 Cookie。TokenBar 不索要密码，也不替你登录。
 - **桌面原生体验。** 托盘图标的双进度条跟随最紧张的额度，点击弹出托盘小面板，列出所有账户。
@@ -73,7 +73,7 @@
 | **可选同步服务器** | 自建。在电脑上推送快照，在手机或浏览器里查看。 |
 | **命令行** | `tokenbar usage` 在终端或以 JSON 输出同样的数据。 |
 
-## 支持的服务（共 52 个）
+## 支持的服务（共 53 个）
 
 读取方式：
 
@@ -88,6 +88,9 @@
 | Codex（ChatGPT 订阅） | 本机 `~/.codex/auth.json`（先运行 `codex login`）；令牌过期时可走 `codex app-server` | 5 小时、每周、Credits |
 | Claude（Pro / Max） | 本机 Claude Code 登录（`~/.claude/.credentials.json`，macOS 为钥匙串） | 5 小时、每周、Opus / Sonnet 每周、额外用量 |
 | Cursor | 本机 Cursor 桌面端登录（只读 `state.vscdb`），或粘贴 cursor.com 的 Cookie | 本月额度、Auto / API 分项、按需用量 |
+| Gemini | Firefox 登录（自动读取，推荐——浏览器会轮换令牌，粘贴的副本很快失效）、本机 Gemini CLI 登录（`~/.gemini/oauth_creds.json`，只读），或粘贴 OAuth 令牌 / gemini.google.com 的 Cookie | Gemini 应用 5 小时与每周限额，或 Pro / Flash / Flash Lite 额度 |
+
+**Gemini**：桌面端可复用 Gemini CLI 的 Google 登录（只读；Google 已于 2026 年 6 月起停止为个人、AI Pro、Ultra 账户提供 Gemini CLI OAuth，该路径需要 Workspace / 教育版 / Code Assist Standard 或 Enterprise 账户）。也可以粘贴 `~/.gemini/oauth_creds.json` 里的 OAuth access token，或在浏览器开发者工具中复制 gemini.google.com/usage 请求的 `Cookie` 请求头 —— Cookie 路径读取 Gemini 应用的 5 小时与每周限额，个人套餐可用。在**账户 → 添加账户 → Gemini** 中添加。令牌与 Cookie 均不做刷新；过期后在 Gemini CLI 重新登录或更换新 Cookie 即可。 桌面端当拉取报告「会话已失效」且 Firefox 持有有效的 gemini.google.com 登录时，会自动改从 Firefox 自己的 Cookie 库读取（`cookies.sqlite`，明文 SQLite，Firefox 运行中也可只读打开）——浏览器始终持有最新的短期会话令牌，该路径无需重新粘贴即可持续工作。Cookie 与令牌永不回写。
 
 <details>
 <summary><b>官方 API Key（23 个）</b></summary>
