@@ -14,6 +14,7 @@ import '../services/home_widget_bridge.dart';
 import '../services/notifier.dart';
 import '../services/persistence.dart';
 import '../services/quota_alerts.dart';
+import '../services/system_proxy.dart';
 import 'settings.dart';
 
 class AppController extends ChangeNotifier {
@@ -207,6 +208,7 @@ class AppController extends ChangeNotifier {
 
   Future<List<UsageSnapshot>> _fetchLocal() async {
     final ctx = FetchContext(
+      client: await systemProxyClient(),
       allowClaudeTokenRefresh: settings.allowClaudeRefresh,
       allowCliFallback: settings.allowCliFallback,
       userAgent: 'TokenBar/0.1',
@@ -365,7 +367,12 @@ class AppController extends ChangeNotifier {
     DateTime since,
     DateTime now,
   ) async {
-    final ctx = FetchContext(allowCliFallback: false, userAgent: 'TokenBar/0.1', clock: _clock);
+    final ctx = FetchContext(
+      client: await systemProxyClient(),
+      allowCliFallback: false,
+      userAgent: 'TokenBar/0.1',
+      clock: _clock,
+    );
     try {
       final series = await provider
           .fetchModelUsage(account, ctx, from: since, to: now)
