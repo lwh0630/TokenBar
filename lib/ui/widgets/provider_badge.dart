@@ -31,6 +31,7 @@ const Set<String> providerIconIds = {
   'fireworks',
   'flora',
   'futureagi',
+  'gemini',
   'gitkraken',
   'groq',
   'huggingface',

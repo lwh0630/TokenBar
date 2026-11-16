@@ -140,6 +140,24 @@ Future<String?> readSqliteText(String dbPath, String sql, [List<Object?> params 
   }
 }
 
+/// Reads full rows from a SQLite database opened read-only (safe while the
+/// owning app has it open). Empty list when the file is missing or locked.
+Future<List<List<Object?>>> readSqliteRows(
+  String dbPath,
+  String sql, [
+  List<Object?> params = const [],
+]) async {
+  if (!await File(dbPath).exists()) return const [];
+  final db = sqlite3.open(dbPath, mode: OpenMode.readOnly);
+  try {
+    return [for (final row in db.select(sql, params)) row.values];
+  } on SqliteException {
+    return const [];
+  } finally {
+    db.close();
+  }
+}
+
 /// VS Code-style state DBs may store text as UTF-8 or BOM-less UTF-16LE.
 String _decodeBlobText(List<int> bytes) {
   final looksUtf16 = bytes.length >= 4 && bytes.length.isEven && bytes[1] == 0 && bytes[3] == 0;

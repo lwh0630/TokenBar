@@ -184,6 +184,9 @@ DateTime? parseFlexibleDate(Object? value) {
 
 /// Normalizes user input that may be a full `Cookie:` header line, a cURL
 /// snippet's `-H 'Cookie: …'`/`-b '…'` argument, or the bare header value.
+/// Strips copy artifacts (a `Cookie` label with colon/tab separator, line
+/// wraps, control and non-ASCII characters) that would make dart:io reject
+/// the header value.
 String normalizeCookieHeader(String input) {
   var text = input.trim();
   final curl = RegExp(
@@ -191,8 +194,38 @@ String normalizeCookieHeader(String input) {
     caseSensitive: false,
   ).firstMatch(text);
   if (curl != null) text = curl.group(1)!;
-  text = text.replaceFirst(RegExp(r'^cookie:\s*', caseSensitive: false), '');
-  return text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+  // `Cookie: value` and the tab-separated `Cookie\tvalue` form DevTools can
+  // produce; a bare pair like `cookie=1` has no separator and is kept whole.
+  text = text.replaceFirst(RegExp(r'^cookie(?::|\s)\s*', caseSensitive: false), '');
+  // Wrapped copies put each pair on its own line.
+  text = text.replaceAll(RegExp(r'[\r\n]+'), ' ');
+  // A tab between pairs separates them; a tab inside a value is a copy artifact.
+  text = text.replaceAll('\t', '; ');
+  // A literal U+2026 means the value was copied from a UI preview that
+  // truncates long headers — the middle of the cookie is simply missing.
+  // Fail loudly instead of silently shipping a mangled credential.
+  if (text.contains('\u2026')) {
+    throw ProviderException(
+      'Cookie 被截断了（值里带有省略号 …）',
+      hint: '预览面板里的长值是显示截断的。请在 DevTools 的 Request Headers 里找到 Cookie 一行，右键选「复制值」',
+    );
+  }
+  // Header values must be printable ASCII: drop zero-width/full-width or
+  // other non-ASCII characters and remaining control characters.
+  text = text.replaceAll(RegExp(r'[^\x20-\x7E]'), '');
+  text = text.trim();
+  // A bare value (a single token, no separators) is legitimate input —
+  // callers wrap it as `name=value`. Anything structured (pairs separated by
+  // `;` or spaces) must contain at least one `=`, and input that cleaned to
+  // nothing is garbage. Both misfires would fail at the server anyway.
+  final bareValue = text.isNotEmpty && !text.contains(RegExp(r'[\s;=]'));
+  if (text.isEmpty || (!bareValue && !text.contains('='))) {
+    throw ProviderException(
+      'Cookie 格式无法识别',
+      hint: '在 DevTools 的 Network 面板选中请求，在 Request Headers 的 Cookie 一行右键「复制值」，只粘贴值本身',
+    );
+  }
+  return text;
 }
 
 /// Value of one cookie in a Cookie header, or null.

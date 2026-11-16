@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:tokenbar_core/src/providers/api/local_auth_a_providers.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
@@ -202,6 +203,158 @@ void main() {
       expect(seen.headers['Cookie'], 'SID=abc; __Secure-1PSID=xyz');
       expect(s.source, 'web');
       expect(s.plan, 'Pro');
+    });
+
+    test('signature discovery helpers find the bundle and the query id', () {
+      const html =
+          '<script src="https://www.gstatic.com/bg3/boq-bard-web/islands/assets/'
+          r'@messages/assets/UsagePageLoading-aB3cD-ef4.js"></script>';
+      expect(findGeminiLoadingBundle(html), 'UsagePageLoading-aB3cD-ef4.js');
+      expect(findGeminiLoadingBundle('<html>no import map here</html>'), isNull);
+      const js = r'x={id:`2/fresh-sig=`,metadata:{},name:`UsagePageQuery`};';
+      expect(findGeminiQueryId(js), '2/fresh-sig=');
+      expect(findGeminiQueryId('no query here'), isNull);
+    });
+
+    test('rejected query re-derives the signature and retries once', () async {
+      final executeQuerySignatures = <String?>[];
+      final client = MockClient((r) async {
+        if (r.url.host == 'gemini.google.com' && r.url.path.endsWith('/app')) {
+          return http.Response('import "@messages/assets/UsagePageLoading-t1.js";', 200);
+        }
+        if (r.url.host == 'www.gstatic.com') {
+          return http.Response(r'x={id:`2/fresh-sig=`,metadata:{},name:`UsagePageQuery`};', 200);
+        }
+        if (r.url.path.endsWith('executeQuery')) {
+          executeQuerySignatures.add(r.url.queryParameters['query_signature']);
+          if (r.url.queryParameters['query_signature'] == '2/fresh-sig=') {
+            return http.Response(_fx('gemini_web_usage.txt'), 200);
+          }
+          return http.Response(')]}\'\n[{"errors":[{"message":"Unknown query"}]}]', 200);
+        }
+        return http.Response('unexpected ${r.url}', 404);
+      });
+      final s = await GeminiProvider().fetchSafely(
+        _acct('gemini', secret: 'Cookie: SID=abc; __Secure-1PSID=xyz'),
+        _ctx(client),
+      );
+      expect(s.error, isNull, reason: s.error);
+      expect(executeQuerySignatures, [
+        '2/dWbCvkVB0X16r9NPnxifeOAAqdCqMf0xeWvau9yPy7g=',
+        '2/fresh-sig=',
+      ]);
+      expect(s.source, 'web');
+      expect(s.plan, 'Pro');
+    });
+
+    test('query rejected and discovery unavailable keeps the rejection error', () async {
+      final client = MockClient((r) async {
+        if (r.url.path.endsWith('executeQuery')) {
+          return http.Response(')]}\'\n[{"errors":[{"message":"Unknown query"}]}]', 200);
+        }
+        return http.Response('<html>no bundle</html>', 200);
+      });
+      final s = await GeminiProvider().fetchSafely(
+        _acct('gemini', secret: 'Cookie: SID=abc; __Secure-1PSID=xyz'),
+        _ctx(client),
+      );
+      expect(s.error, contains('查询签名'));
+    });
+
+    test('validateManual demands a session cookie field for cookie-shaped input', () {
+      final p = GeminiProvider();
+      FieldValues fv(String secret) => FieldValues('Gemini', p.fields, {'secret': secret});
+      // Cookie without any of __Secure-1PSID / __Secure-3PSID / SID: rejected.
+      expect(
+        p.validateManual(fv('SEARCH_SAMESITE=x; NID=y; __Secure-1PSIDTS=t')),
+        contains('登录会话字段'),
+      );
+      // A real session cookie passes.
+      expect(p.validateManual(fv('NID=y; __Secure-1PSID=abc; __Secure-1PSIDTS=t')), isNull);
+      // Bare OAuth tokens are not cookie-shaped and stay untouched.
+      expect(p.validateManual(fv('ya29.a0Abc')), isNull);
+      // Truncated paste surfaces the truncation message, not a crash.
+      expect(p.validateManual(fv('a=1; b=2\u2026c=3')), contains('截断'));
+    });
+
+    Directory firefoxHome(Directory home) {
+      // Mirror the per-platform profile layout that
+      // [firefoxGoogleCookieHeader] looks up.
+      final base = Platform.isMacOS
+          ? '${home.path}/Library/Application Support/Firefox/Profiles'
+          : '${home.path}/.mozilla/firefox';
+      return Directory(base);
+    }
+
+    test('firefox cookie store yields a live session header', () async {
+      final home = await Directory.systemTemp.createTemp('tokenbar_ff_test');
+      addTearDown(() => home.delete(recursive: true));
+      final profile = Directory('${firefoxHome(home).path}${Platform.pathSeparator}abc.gemini');
+      profile.createSync(recursive: true);
+      final db = sqlite3.open('${profile.path}${Platform.pathSeparator}cookies.sqlite');
+      db.execute('CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT)');
+      db.execute(
+        "INSERT INTO moz_cookies VALUES ('NID', 'nid-gemini-host', 'gemini.google.com'),"
+        "('NID', 'nid-main-host', '.google.com'),"
+        "('__Secure-1PSID', 'sid-value', '.google.com'),"
+        "('__Secure-1PSIDTS', 'ts-value', '.google.com'),"
+        "('SAPISID', 'sapi-value', '.google.com'),"
+        "('unrelated', 'x', 'accounts.google.com')",
+      );
+      db.close();
+
+      final header = await firefoxGoogleCookieHeader(homeDir: home.path);
+      expect(header, isNotNull);
+      expect(header, contains('__Secure-1PSID=sid-value'));
+      // gemini.google.com host wins over .google.com for duplicate names.
+      expect(header, contains('NID=nid-gemini-host'));
+      expect(header, isNot(contains('nid-main-host')));
+      // Sub-domain-only cookies (accounts.google.com) are not carried.
+      expect(header, isNot(contains('unrelated')));
+    });
+
+    test('profiles without a Gemini session yield null', () async {
+      final home = await Directory.systemTemp.createTemp('tokenbar_ff_test');
+      addTearDown(() => home.delete(recursive: true));
+      final profile = Directory('${firefoxHome(home).path}${Platform.pathSeparator}x.default');
+      profile.createSync(recursive: true);
+      final db = sqlite3.open('${profile.path}${Platform.pathSeparator}cookies.sqlite');
+      db.execute('CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT)');
+      db.execute("INSERT INTO moz_cookies VALUES ('NID', 'x', '.google.com')");
+      db.close();
+      expect(await firefoxGoogleCookieHeader(homeDir: home.path), isNull);
+    });
+
+    test('signed-out paste falls back to the live Firefox cookie store', () async {
+      final home = await Directory.systemTemp.createTemp('tokenbar_ff_test');
+      addTearDown(() => home.delete(recursive: true));
+      final profile = Directory('${firefoxHome(home).path}${Platform.pathSeparator}abc.gemini');
+      profile.createSync(recursive: true);
+      final db = sqlite3.open('${profile.path}${Platform.pathSeparator}cookies.sqlite');
+      db.execute('CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT)');
+      db.execute(
+        "INSERT INTO moz_cookies VALUES ('__Secure-1PSID', 'fresh-sid', '.google.com'),"
+        "('__Secure-1PSIDTS', 'fresh-ts', '.google.com')",
+      );
+      db.close();
+
+      final cookieHeaders = <String?>[];
+      final client = MockClient((r) async {
+        cookieHeaders.add(r.headers['Cookie']);
+        if (cookieHeaders.length == 1) {
+          return http.Response(')]}\'\n[{"data":{"viewer":null}}]', 200);
+        }
+        return http.Response(_fx('gemini_web_usage.txt'), 200);
+      });
+      final s = await GeminiProvider().fetchSafely(
+        _acct('gemini', secret: 'Cookie: __Secure-1PSID=stale', homeDir: home.path),
+        _ctx(client),
+      );
+      expect(s.error, isNull, reason: s.error);
+      expect(s.source, 'firefox');
+      expect(cookieHeaders, hasLength(2));
+      expect(cookieHeaders[0], contains('__Secure-1PSID=stale'));
+      expect(cookieHeaders[1], contains('__Secure-1PSID=fresh-sid'));
     });
   });
 

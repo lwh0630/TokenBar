@@ -78,6 +78,7 @@ class ProviderRegistry {
     GroqProvider(),
     MiMoProvider(),
     CopilotProvider(),
+    GeminiProvider(),
   ]);
 
   final List<UsageProvider> all;
