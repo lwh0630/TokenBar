@@ -33,6 +33,10 @@ Future<List<String>?> listCodexSessionFiles(String home, DateTime from, DateTime
   final names = <String>{};
 
   bool wanted(platform.LocalFileEntry file) {
+    // Known limitation: newer Codex versions compress finished rollouts to `*.jsonl.zst`
+    // (CodexBar decodes them). Dart ships no zstd decoder and TokenBar does not bundle one,
+    // so those files are skipped here; the usage they hold is missing from the chart rather
+    // than guessed. Only plain `.jsonl` is read, so a compressed copy never double counts.
     if (!file.name.toLowerCase().endsWith('.jsonl')) return false;
     final modified = file.modified;
     return modified != null && !modified.isBefore(from);

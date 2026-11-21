@@ -135,31 +135,40 @@ class LiteLlmProvider extends _GatewayProvider {
       final json = await get('/user/info?user_id=${Uri.encodeQueryComponent(userId)}');
       final u = asMap(json['user_info']) ?? const {};
       email = asString(u['user_email']) ?? asString(u['user_alias']);
-      add(
-        liteLlmBudget(
-          'litellm-personal',
-          '个人预算',
-          u['spend'],
-          u['max_budget'],
-          u['budget_reset_at'],
-          team: false,
-        ),
+      var personal = liteLlmBudget(
+        'litellm-personal',
+        '个人预算',
+        u['spend'],
+        u['max_budget'],
+        u['budget_reset_at'],
+        team: false,
       );
-      for (final t
-          in (asList(json['teams']) ?? const []).map(asMap).whereType<Map<String, Object?>>()) {
-        if (teamId != null && asString(t['team_id']) == teamId) {
-          org = asString(t['team_alias']);
-          add(
-            liteLlmBudget(
-              'litellm-team',
-              '团队预算',
-              t['spend'],
-              t['max_budget'],
-              t['budget_reset_at'],
-              team: true,
-            ),
-          );
-        }
+      final rawTeams = (asList(json['teams']) ?? const [])
+          .map(asMap)
+          .whereType<Map<String, Object?>>()
+          .toList();
+      final mine = teamId == null
+          ? null
+          : rawTeams.where((t) => asString(t['team_id']) == teamId).firstOrNull;
+      // No personal limit: fall back to this user's budget inside the key's team (a member
+      // override, else the team's default member budget). Both are optional extras.
+      if (teamId != null && personal.window == null) {
+        final member = await _teamMemberBudget(ctx, base, headers, userId, teamId, mine);
+        if (member != null) personal = member;
+      }
+      add(personal);
+      if (mine != null) {
+        org = asString(mine['team_alias']);
+        add(
+          liteLlmBudget(
+            'litellm-team',
+            '团队预算',
+            mine['spend'],
+            mine['max_budget'],
+            mine['budget_reset_at'],
+            team: true,
+          ),
+        );
       }
     } else {
       final t =
@@ -188,6 +197,68 @@ class LiteLlmProvider extends _GatewayProvider {
       windows: windows,
       credits: credits,
     );
+  }
+
+  /// The user's own budget inside the key's team (CodexBar litellm.ts). The membership must
+  /// belong to [userId] and to [teamId] (or carry no team); team-wide spend is never compared
+  /// with a member limit, and any failure just leaves the personal budget as it was.
+  Future<({RateWindow? window, Credits? credits})?> _teamMemberBudget(
+    FetchContext ctx,
+    String base,
+    Map<String, String> headers,
+    String userId,
+    String teamId,
+    Map<String, Object?>? team,
+  ) async {
+    Map<String, Object?>? member(Object? rows) {
+      for (final row in (asList(rows) ?? const []).map(asMap)) {
+        if (row == null || asString(row['user_id']) != userId) continue;
+        final rowTeam = row['team_id'];
+        if (rowTeam == null || asString(rowTeam) == teamId) return row;
+      }
+      return null;
+    }
+
+    try {
+      final mine = member(team?['team_memberships']);
+      var table = asMap(mine?['litellm_budget_table']) ?? const <String, Object?>{};
+      var spend = asDouble(mine?['spend']);
+      if (asDouble(table['max_budget']) == null || spend == null) {
+        final r = await sendRequest(
+          ctx,
+          displayName,
+          Uri.parse('$base/team/info?team_id=${Uri.encodeQueryComponent(teamId)}'),
+          headers: headers,
+          timeout: const Duration(seconds: 8),
+        );
+        if (r.ok) {
+          final root = asMap(r.json) ?? const <String, Object?>{};
+          final info = asMap(root['team_info']) ?? const <String, Object?>{};
+          final responseId = asString(info['team_id']) ?? asString(root['team_id']);
+          if (responseId != null && responseId != teamId) return null;
+          final fallback = member(info['team_memberships'] ?? root['team_memberships']);
+          if (table['max_budget'] == null) {
+            table = asMap(fallback?['litellm_budget_table']) ?? const <String, Object?>{};
+            if (table['max_budget'] == null) {
+              table = asMap(info['team_member_budget_table']) ?? const <String, Object?>{};
+            }
+          }
+          spend ??= asDouble(fallback?['spend']);
+        }
+      }
+      final limit = asDouble(table['max_budget']);
+      if (limit == null || limit <= 0 || spend == null) return null;
+      return liteLlmBudget(
+        'litellm-personal',
+        '个人预算',
+        spend,
+        limit,
+        table['budget_reset_at'],
+        team: false,
+      );
+    } on ProviderException {
+      return null;
+    }
   }
 
   Future<UsageSnapshot> _spendReport(

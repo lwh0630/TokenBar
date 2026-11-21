@@ -4,8 +4,10 @@ import '../../models/account.dart';
 import '../../models/credits.dart';
 import '../../models/rate_window.dart';
 import '../../models/usage_snapshot.dart';
+import '../../platform/browser_cookies.dart' show readBrowserCookies;
 import '../../platform/platform.dart' as platform;
 import '../../util/json_utils.dart';
+import '../browser_cookie_source.dart';
 import '../common.dart';
 import '../fields.dart';
 import '../http_support.dart';
@@ -184,6 +186,10 @@ RateWindow? _copilotWindow(String id, String label, _CopilotQuota? q, DateTime? 
 ({String plan, List<RateWindow> windows, List<Credits> credits}) parseCopilotUsage(
   Map<String, Object?> json,
 ) {
+  // The response decodes fine but carries no quotas; say why (CodexBar #4851).
+  if (asString(json['access_type_sku']) == 'subscription_ended') {
+    throw ProviderException('Copilot 订阅已结束', hint: '在 GitHub 续订 Copilot，或换用仍有订阅的账号的 Token');
+  }
   final direct = _directCopilotQuotas(asMap(json['quota_snapshots']) ?? const {});
   final monthly = asMap(json['monthly_quotas']);
   final limited = asMap(json['limited_user_quotas']);
@@ -521,6 +527,9 @@ List<RateWindow> parseGeminiQuotaBuckets(Map<String, Object?> json) {
 /// Hosts whose cookies a gemini.google.com request actually carries.
 const _firefoxGoogleCookieHosts = ['.google.com', 'google.com', 'gemini.google.com'];
 
+/// Hosts for the generic (Chromium family) browser reader; it matches parent domains itself.
+const _googleCookieHosts = ['gemini.google.com', 'google.com'];
+
 /// Reads the live Google session cookies from Firefox's own cookie store.
 ///
 /// Google rotates the short-lived `__Secure-1PSIDTS` tokens roughly every 15
@@ -600,6 +609,7 @@ class GeminiProvider extends UsageProvider {
       hint: 'ya29... 或 Cookie: ...',
       help: 'OAuth token 来自 ~/.gemini/oauth_creds.json 的 access_token；Cookie 来自 gemini.google.com 的请求头',
     ),
+    cookieSourceField,
   ];
 
   @override
@@ -649,18 +659,18 @@ class GeminiProvider extends UsageProvider {
           // A pasted copy dies as soon as the browser rotates the PSIDTS
           // tokens; Firefox's own cookie store always holds live values.
           if (!_isSignedOut(e)) rethrow;
-          final fresh = await firefoxGoogleCookieHeader(homeDir: account.homeDir);
+          final fresh = await _freshCookie(account, ctx);
           if (fresh == null) rethrow;
-          return await _fetchWeb(account, ctx, fresh, source: 'firefox');
+          return await _fetchWeb(account, ctx, fresh.header, source: fresh.source);
         }
       }
       return _fetchOAuth(account, ctx, token: bareToken(pasted), source: 'api-key');
     }
     final creds = await _readLocal(account);
     if (creds == null) {
-      final fresh = await firefoxGoogleCookieHeader(homeDir: account.homeDir);
+      final fresh = await _freshCookie(account, ctx);
       if (fresh != null) {
-        return await _fetchWeb(account, ctx, fresh, source: 'firefox');
+        return await _fetchWeb(account, ctx, fresh.header, source: fresh.source);
       }
       throw ProviderException(
         '未找到 Gemini CLI 登录',
@@ -680,6 +690,28 @@ class GeminiProvider extends UsageProvider {
   }
 
   bool _isSignedOut(ProviderException e) => e.message == 'Gemini 网页会话已失效';
+
+  /// A live Google session from the signed-in browser, unless the account is set to manual
+  /// cookies. Firefox's plain store first (no prompts), then, when the context allows browser
+  /// access, the Chromium family. Null when no browser holds a Gemini session.
+  Future<({String header, String source})?> _freshCookie(
+    AccountConfig account,
+    FetchContext ctx,
+  ) async {
+    final values = FieldValues.of(this, account);
+    if (values['cookieSource'] == 'manual') return null;
+    final firefox = await firefoxGoogleCookieHeader(homeDir: account.homeDir);
+    if (firefox != null) return (header: firefox, source: 'firefox');
+    final environment = ctx.browserCookies;
+    if (environment == null || !cookieSourceIsAuto(values)) return null;
+    final read = await readBrowserCookies(
+      hosts: _googleCookieHosts,
+      requiredNames: const ['__Secure-1PSID'],
+      environment: environment,
+    );
+    final header = read.header;
+    return header == null ? null : (header: header, source: 'browser:${read.browser?.name}');
+  }
 
   Future<GeminiLocalCredentials?> _readLocal(AccountConfig account) async {
     final home = account.homeDir ?? platform.homeDirectory();

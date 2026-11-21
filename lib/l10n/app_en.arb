@@ -143,6 +143,8 @@
   "sectionDataSources": "Data sources",
   "allowCliFallback": "Allow Codex CLI fallback",
   "allowCliFallbackHint": "When the OAuth token expires, read usage through `codex app-server` (the CLI handles login refresh)",
+  "allowBrowserCookies": "Read browser sign-ins automatically",
+  "allowBrowserCookiesHint": "For services that sign in through a web page (Xiaomi MiMo, Cursor cookie accounts, Gemini), read the session cookies of your browser (Firefox, Chrome, Edge, Brave, ...). Read-only, only for that service, nothing is stored. Each account can switch to pasted cookies instead",
   "allowClaudeRefresh": "Allow TokenBar to refresh Claude tokens",
   "allowClaudeRefreshHint": "When a token expires, TokenBar refreshes it and writes it back to ~/.claude/.credentials.json. Refreshing rotates the refresh token, so you may need to sign in again if Claude Code is running. Off by default.",
   "sectionDesktop": "Desktop",

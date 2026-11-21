@@ -37,6 +37,12 @@ http.Response _json(Object body, [int status = 200]) =>
 
 RateWindow _w(UsageSnapshot s, String id) => s.window(id)!;
 
+// The helper builds a macOS / Linux profile layout under a fake home; on Windows the profile
+// directory comes from %APPDATA%, which a test cannot redirect.
+final String? _firefoxLayoutSkip = Platform.isWindows
+    ? "needs the macOS/Linux profile layout"
+    : null;
+
 void main() {
   test('registers the seven providers with expected ids', () {
     expect(localAuthAProviders.map((p) => p.id), [
@@ -311,7 +317,7 @@ void main() {
       expect(header, isNot(contains('nid-main-host')));
       // Sub-domain-only cookies (accounts.google.com) are not carried.
       expect(header, isNot(contains('unrelated')));
-    });
+    }, skip: _firefoxLayoutSkip);
 
     test('profiles without a Gemini session yield null', () async {
       final home = await Directory.systemTemp.createTemp('tokenbar_ff_test');
@@ -323,7 +329,7 @@ void main() {
       db.execute("INSERT INTO moz_cookies VALUES ('NID', 'x', '.google.com')");
       db.close();
       expect(await firefoxGoogleCookieHeader(homeDir: home.path), isNull);
-    });
+    }, skip: _firefoxLayoutSkip);
 
     test('signed-out paste falls back to the live Firefox cookie store', () async {
       final home = await Directory.systemTemp.createTemp('tokenbar_ff_test');
@@ -355,7 +361,7 @@ void main() {
       expect(cookieHeaders, hasLength(2));
       expect(cookieHeaders[0], contains('__Secure-1PSID=stale'));
       expect(cookieHeaders[1], contains('__Secure-1PSID=fresh-sid'));
-    });
+    }, skip: _firefoxLayoutSkip);
   });
 
   group('kiro', () {

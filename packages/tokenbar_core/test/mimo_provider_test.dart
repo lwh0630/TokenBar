@@ -75,7 +75,9 @@ void main() {
     final provider = ProviderRegistry.instance.byId('mimo');
     expect(provider, isA<MiMoProvider>());
     expect(provider!.supportedSources, [SourceType.apiKey]);
-    expect(provider.fields.single.isSecure, isTrue);
+    // The secret (Cookie or tp- Token Plan key) plus the Token Plan region.
+    expect(provider.fields.map((f) => f.key), ['secret', 'region', 'cookieSource']);
+    expect(provider.fields.first.isSecure, isTrue);
     expect(ProviderRegistry.instance.byId('sakana'), isNull);
 
     final (snapshot, requests) = await _fetch(provider: provider);

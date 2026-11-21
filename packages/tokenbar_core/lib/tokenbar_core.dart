@@ -7,6 +7,7 @@ export 'src/models/model_usage.dart';
 export 'src/models/rate_window.dart';
 export 'src/models/usage_point.dart';
 export 'src/models/usage_snapshot.dart';
+export 'src/platform/browser_cookies.dart' show BrowserCookieEnvironment;
 export 'src/platform/platform.dart' show JsonRpcNotification, JsonRpcSession, localAccessSupported;
 export 'src/providers/claude/claude_credentials.dart'
     show ClaudeCredentials, resolveClaudeConfigDir;

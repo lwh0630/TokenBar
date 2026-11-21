@@ -369,6 +369,19 @@ void main() {
       expect(codexPriceFor('openai/gpt-5-codex-2025-09-15', DateTime.utc(2026)), isNotNull);
     });
 
+    test('GPT-6.1 Terra and GPT-6.2 models use the CodexBar table', () {
+      final at = DateTime.utc(2026, 11, 20);
+      expect(codexPriceFor('gpt-6.1-terra', at)!.input, 1e-6);
+      expect(codexPriceFor('gpt-6.2-astra', at)!.output, 4e-5);
+      final sol = codexPriceFor('gpt-6.2-sol', at)!;
+      expect(sol.cachedInput, 1e-7);
+      // long-context request: the whole request is priced at the doubled input rate
+      expect(
+        codexCostUsd('gpt-6.2-sol', at, input: 300000, cached: 0, output: 0),
+        closeTo(300000 * 4e-6, 1e-9),
+      );
+    });
+
     test('Sol keeps its old rates before the 2026-08-21 repricing; aliases resolve', () {
       expect(codexPriceFor('gpt-5.6-sol', DateTime.utc(2026, 8, 1))!.input, 5e-6);
       expect(codexPriceFor('gpt-5.6-sol', DateTime.utc(2026, 9, 1))!.input, 4e-6);
@@ -467,6 +480,46 @@ void main() {
       expect(_tokensOf(series, 'gpt-5.5'), 3150, reason: 'duplicate file name counted once');
       expect(_tokensOf(series, 'gpt-5'), 15);
       expect(_tokensOf(series, 'gpt-5-mini'), 2);
+    });
+
+    test('symlinked day, archive and file entries are followed', () async {
+      final elsewhere = Directory.systemTemp.createTempSync('tokenbar_codex_other_');
+      addTearDown(() => elsewhere.deleteSync(recursive: true));
+      File outside(String relative) => File('${elsewhere.path}${Platform.pathSeparator}$relative')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('${_fixtureLines().join('\n')}\n')
+        ..setLastModifiedSync(to);
+      final day = outside('day/rollout-day.jsonl').parent;
+      final archive = outside('archive/rollout-archived.jsonl').parent;
+      final single = outside('single/rollout-single.jsonl');
+      final sep = Platform.pathSeparator;
+      Directory('${home.path}${sep}sessions${sep}2026${sep}10').createSync(recursive: true);
+      Directory('${home.path}${sep}sessions${sep}2026${sep}10${sep}22').createSync();
+      try {
+        Link('${home.path}${sep}sessions${sep}2026${sep}10${sep}23').createSync(day.path);
+        Link('${home.path}${sep}archived_sessions').createSync(archive.path);
+        Link('${home.path}${sep}sessions${sep}2026${sep}10${sep}22${sep}rollout-single.jsonl')
+            .createSync(single.path);
+      } on FileSystemException {
+        markTestSkipped('symlinks cannot be created here (e.g. Windows without privilege)');
+        return;
+      }
+      final files = (await listCodexSessionFiles(home.path, from, to))!;
+      expect(files.map((p) => p.split(RegExp(r'[\\/]')).last).toSet(), {
+        'rollout-day.jsonl',
+        'rollout-archived.jsonl',
+        'rollout-single.jsonl',
+      });
+    });
+
+    test('compressed .jsonl.zst rollouts are skipped, not counted or crashed on', () async {
+      write('sessions/2026/10/23/rollout-live.jsonl', _fixtureLines(), modified: to);
+      write('archived_sessions/rollout-live.jsonl.zst', ['not json at all'], modified: to);
+      write('sessions/2026/10/23/rollout-old.jsonl.zst', ['not json at all'], modified: to);
+      final files = (await listCodexSessionFiles(home.path, from, to))!;
+      expect(files.map((p) => p.split(RegExp(r'[\\/]')).last), ['rollout-live.jsonl']);
+      final series = (await loadCodexModelUsage(home.path, from, to))!;
+      expect(_tokensOf(series, 'gpt-5.5'), 3150, reason: 'no double counting');
     });
 
     test('provider uses the account home directory and returns null without logs', () async {

@@ -478,6 +478,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get allowCliFallbackHint => 'OAuth 令牌过期时通过 `codex app-server` 读取额度（由 CLI 负责刷新登录）';
 
   @override
+  String get allowBrowserCookies => '自动读取浏览器登录状态';
+
+  @override
+  String get allowBrowserCookiesHint =>
+      '对需要网页登录的服务（小米 MiMo、Cursor Cookie 账户、Gemini），自动读取浏览器（Firefox、Chrome、Edge、Brave 等）里的会话 Cookie。只读、只取该服务自己的 Cookie、不会保存；每个账户也可以改成手动粘贴';
+
+  @override
   String get allowClaudeRefresh => '允许 TokenBar 刷新 Claude 令牌';
 
   @override

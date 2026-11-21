@@ -1,5 +1,6 @@
 import 'api/account_api_providers.dart';
 import 'api/atlascloud_provider.dart';
+import 'api/balance_api_providers.dart';
 import 'api/coding_plan_providers.dart';
 import 'api/cookie_b_providers.dart';
 import 'api/deepinfra_provider.dart';
@@ -79,6 +80,10 @@ class ProviderRegistry {
     MiMoProvider(),
     CopilotProvider(),
     GeminiProvider(),
+    AbliterationProvider(),
+    TrustedRouterProvider(),
+    TripoProvider(),
+    SiliconFlowProvider(),
   ]);
 
   final List<UsageProvider> all;

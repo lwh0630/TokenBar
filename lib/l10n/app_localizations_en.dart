@@ -504,6 +504,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'When the OAuth token expires, read usage through `codex app-server` (the CLI handles login refresh)';
 
   @override
+  String get allowBrowserCookies => 'Read browser sign-ins automatically';
+
+  @override
+  String get allowBrowserCookiesHint =>
+      'For services that sign in through a web page (Xiaomi MiMo, Cursor cookie accounts, Gemini), read the session cookies of your browser (Firefox, Chrome, Edge, Brave, ...). Read-only, only for that service, nothing is stored. Each account can switch to pasted cookies instead';
+
+  @override
   String get allowClaudeRefresh => 'Allow TokenBar to refresh Claude tokens';
 
   @override

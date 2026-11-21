@@ -59,6 +59,10 @@ class AppController extends ChangeNotifier {
   /// Localized strings for code that runs outside the widget tree.
   AppLocalizations get l10n => lookupAppLocalizations(locale);
 
+  /// Browser-cookie access for provider fetches: desktop only, and only while the setting is on.
+  BrowserCookieEnvironment? get _browserCookies =>
+      settings.allowBrowserCookies && canUseLocalLogins ? const BrowserCookieEnvironment() : null;
+
   Timer? _refreshTimer;
   Timer? _clockTimer;
   int _consecutiveFailures = 0;
@@ -245,6 +249,7 @@ class AppController extends ChangeNotifier {
       client: await createProviderClient(),
       allowClaudeTokenRefresh: settings.allowClaudeRefresh,
       allowCliFallback: settings.allowCliFallback,
+      browserCookies: _browserCookies,
       userAgent: 'TokenBar/0.1',
     );
     final origin = settings.deviceName.isEmpty ? null : settings.deviceName;
@@ -444,6 +449,7 @@ class AppController extends ChangeNotifier {
     final ctx = FetchContext(
       client: await createProviderClient(),
       allowCliFallback: false,
+      browserCookies: _browserCookies,
       userAgent: 'TokenBar/0.1',
       clock: _clock,
     );
@@ -556,7 +562,8 @@ class AppController extends ChangeNotifier {
         prev.serverUrl != next.serverUrl ||
         prev.serverToken != next.serverToken ||
         prev.allowClaudeRefresh != next.allowClaudeRefresh ||
-        prev.allowCliFallback != next.allowCliFallback;
+        prev.allowCliFallback != next.allowCliFallback ||
+        prev.allowBrowserCookies != next.allowBrowserCookies;
     if (dataSourceChanged) {
       if (prev.syncMode != next.syncMode) _remoteIds.clear();
       unawaited(refresh());

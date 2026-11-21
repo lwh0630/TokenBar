@@ -9,6 +9,7 @@ import 'package:tokenbar_core/tokenbar_core.dart';
 /// first frame already shows the right widget. `test/provider_icons_test.dart`
 /// checks this set against the files on disk and against the registry.
 const Set<String> providerIconIds = {
+  'abliteration',
   'aerostack',
   'aiand',
   'aixy',
@@ -48,11 +49,14 @@ const Set<String> providerIconIds = {
   'openrouter',
   'poe',
   'sailresearch',
+  'siliconflow',
   'sofya',
   'soniox',
   'sub2api',
   'synthetic',
   'tavily',
+  'tripo',
+  'trustedrouter',
   'v0',
   'venice',
   'vercel',

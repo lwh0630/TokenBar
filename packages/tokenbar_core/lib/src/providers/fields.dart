@@ -52,6 +52,7 @@ class ProviderField {
     String? hint,
     String? help,
     List<String> envVars = const [],
+    bool required = true,
   }) : this(
          key: secretKey,
          label: label,
@@ -59,6 +60,7 @@ class ProviderField {
          hint: hint,
          help: help ?? '浏览器登录后，开发者工具 → 网络 → 任一请求的 Cookie 请求头',
          envVars: envVars,
+         required: required,
        );
 
   const ProviderField.baseUrl({

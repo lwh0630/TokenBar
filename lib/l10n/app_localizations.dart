@@ -915,6 +915,18 @@ abstract class AppLocalizations {
   /// **'OAuth 令牌过期时通过 `codex app-server` 读取额度（由 CLI 负责刷新登录）'**
   String get allowCliFallbackHint;
 
+  /// No description provided for @allowBrowserCookies.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动读取浏览器登录状态'**
+  String get allowBrowserCookies;
+
+  /// No description provided for @allowBrowserCookiesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'对需要网页登录的服务（小米 MiMo、Cursor Cookie 账户、Gemini），自动读取浏览器（Firefox、Chrome、Edge、Brave 等）里的会话 Cookie。只读、只取该服务自己的 Cookie、不会保存；每个账户也可以改成手动粘贴'**
+  String get allowBrowserCookiesHint;
+
   /// No description provided for @allowClaudeRefresh.
   ///
   /// In zh, this message translates to:

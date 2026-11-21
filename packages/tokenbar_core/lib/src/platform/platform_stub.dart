@@ -7,6 +7,7 @@ export 'process_types.dart';
 const bool localAccessSupported = false;
 const bool isMacOS = false;
 const bool isWindows = false;
+const bool isLinux = false;
 const String pathSeparator = '/';
 
 String? envVar(String name) => null;
@@ -42,6 +43,13 @@ Future<List<List<Object?>>> readSqliteRows(
   String sql, [
   List<Object?> params = const [],
 ]) async => const [];
+
+Future<List<List<Object?>>?> readSqliteRowsOrNull(
+  String dbPath,
+  String sql, [
+  List<Object?> params = const [],
+  bool copyFirst = false,
+]) async => null;
 
 Future<String?> findExecutable(String name) async => null;
 

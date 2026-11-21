@@ -155,16 +155,93 @@ class ZaiProvider extends UsageProvider {
   @override
   Future<UsageSnapshot> fetch(AccountConfig account, FetchContext ctx) async {
     final v = FieldValues.of(this, account);
-    final base = v['region'] == 'global' ? 'https://api.z.ai' : 'https://open.bigmodel.cn';
-    final json = await fetchJsonObject(
+    final china = v['region'] != 'global';
+    final base = china ? 'https://open.bigmodel.cn' : 'https://api.z.ai';
+    final key = bareToken(v.secret);
+    final result = await sendRequest(
       ctx,
       displayName,
       Uri.parse('$base/api/monitor/usage/quota/limit'),
-      headers: {'Authorization': 'Bearer ${bareToken(v.secret)}'},
-      authHint: '检查 API Key 与所选区域是否一致',
+      headers: {'Authorization': 'Bearer $key'},
     );
-    return parseZaiQuota(snapshot(account, ctx), json, ctx.now());
+    final root = asMap(result.json);
+    // A BigModel CN prepaid-only account has no Coding Plan but can still report a balance.
+    final noCodingPlan = china && isZaiNoCodingPlan(root);
+    if (!noCodingPlan) {
+      checkStatus(displayName, result, authHint: '检查 API Key 与所选区域是否一致');
+    }
+    if (root == null) throw ProviderException('$displayName 返回了无法解析的数据');
+    var snap = noCodingPlan
+        ? snapshot(account, ctx, source: 'api-key')
+        : parseZaiQuota(snapshot(account, ctx), root, ctx.now());
+    if (china) {
+      final balance = await _fetchBalance(ctx, key);
+      if (balance != null) {
+        snap = UsageSnapshot(
+          accountId: snap.accountId,
+          providerId: snap.providerId,
+          fetchedAt: snap.fetchedAt,
+          plan: snap.plan,
+          source: snap.source,
+          windows: snap.windows,
+          credits: [...snap.credits, balance.credits],
+          extras: {...snap.extras, ...balance.extras},
+        );
+      }
+    }
+    if (noCodingPlan && snap.credits.isEmpty) {
+      throw ProviderException('z.ai 额度接口错误: ${asString(root['msg'])}');
+    }
+    return snap;
   }
+
+  /// Best-effort and CN-only: a failed balance lookup must never break the quota.
+  Future<({Credits credits, Map<String, String> extras})?> _fetchBalance(
+    FetchContext ctx,
+    String key,
+  ) async {
+    try {
+      final result = await sendRequest(
+        ctx,
+        displayName,
+        Uri.parse('https://www.bigmodel.cn/api/biz/account/query-customer-account-report'),
+        headers: {'Authorization': 'Bearer $key'},
+        timeout: const Duration(seconds: 5),
+      );
+      if (result.statusCode != 200) return null;
+      return parseZaiBalance(asMap(result.json));
+    } on ProviderException {
+      return null;
+    }
+  }
+}
+
+/// The quota API's answer for a BigModel CN account that only has prepaid credit.
+bool isZaiNoCodingPlan(Map<String, Object?>? root) =>
+    root != null &&
+    root['success'] == false &&
+    root['code'] == 500 &&
+    root['msg'] == '当前用户不存在coding plan';
+
+/// BigModel CN pay-as-you-go account balance (`query-customer-account-report`). The
+/// available balance wins over the raw one; only real numbers count, so missing fields
+/// never turn into a misleading ¥0.00.
+({Credits credits, Map<String, String> extras})? parseZaiBalance(Map<String, Object?>? body) {
+  if (body == null || body['success'] != true) return null;
+  final data = asMap(body['data']) ?? const <String, Object?>{};
+  final value = asDouble(data['availableBalance']) ?? asDouble(data['balance']);
+  if (value == null) return null;
+  final recharged = asDouble(data['rechargeAmount']);
+  final granted = asDouble(data['giveAmount']);
+  final spent = asDouble(data['totalSpendAmount']);
+  return (
+    credits: balanceRow('zai-balance', value, label: '账户余额', currency: 'CNY'),
+    extras: {
+      if (recharged != null) '累计充值': moneyText(recharged, 'CNY'),
+      if (granted != null && granted > 0) '赠送金额': moneyText(granted, 'CNY'),
+      if (spent != null) '累计消费': moneyText(spent, 'CNY'),
+    },
+  );
 }
 
 // --------------------------------------------------------------- OpenRouter
@@ -429,17 +506,30 @@ UsageSnapshot parseSynthetic(UsageSnapshot base, Object? body) {
   final root = body is List ? {'quotas': body} : (asMap(body) ?? const <String, Object?>{});
   final data = asMap(root['data']);
   Map<String, Object?>? slot(String key) => asMap(root[key]) ?? asMap(data?[key]);
+  // New plans only enforce weekly credits (`planWeeklyLimit`, percentages are 0–100 even
+  // below 1%); the rolling five-hour counter is retired for them (CodexBar synthetic.js).
+  final planWeekly = slot('planWeeklyLimit');
+  final hasPlanWeekly =
+      planWeekly != null && parseFlexQuota(planWeekly, _syntheticKeys, ratioPercent: false) != null;
   final named = [
-    ('synthetic-5h', '5 小时滚动', slot('rollingFiveHourLimit')),
-    ('synthetic-weekly', '每周 Token', slot('weeklyTokenLimit')),
+    if (!hasPlanWeekly) ('synthetic-5h', '5 小时滚动', slot('rollingFiveHourLimit')),
+    if (hasPlanWeekly)
+      ('synthetic-weekly', '每周额度', planWeekly)
+    else
+      ('synthetic-weekly', '每周 Token', slot('weeklyTokenLimit')),
     ('synthetic-search', '搜索（每小时）', asMap(slot('search')?['hourly'])),
   ];
   final windows = <RateWindow>[];
   Credits? credits;
+  final extras = <String, String>{};
   if (named.any((n) => n.$3 != null)) {
     for (final (id, label, m) in named) {
       if (m == null) continue;
-      final q = parseFlexQuota(m, _syntheticKeys);
+      final q = parseFlexQuota(
+        m,
+        _syntheticKeys,
+        ratioPercent: !(hasPlanWeekly && m == planWeekly),
+      );
       if (q != null) {
         windows.add(
           quotaWindow(
@@ -463,6 +553,13 @@ UsageSnapshot parseSynthetic(UsageSnapshot base, Object? body) {
             label: '每周 Credits',
             resetsAt: q?.resetsAt,
           );
+          // Regeneration details of the credit lane.
+          final regenCredits = flexNumber(flexValue(m, ['nextregencredits']));
+          final regenPercent = flexNumber(flexValue(m, ['nextregenpercent', 'tickpercent']));
+          if (regenCredits != null) extras['下次恢复额度'] = '+${moneyText(regenCredits, 'USD')}';
+          if (regenPercent != null) {
+            extras['下次恢复比例'] = '+${regenPercent.toStringAsFixed(regenPercent % 1 == 0 ? 0 : 2)}%';
+          }
         }
       }
     }
@@ -498,6 +595,7 @@ UsageSnapshot parseSynthetic(UsageSnapshot base, Object? body) {
     source: 'api-key',
     windows: windows,
     credits: [?credits],
+    extras: extras,
   );
 }
 

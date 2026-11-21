@@ -8,6 +8,7 @@ import '../../models/model_usage.dart';
 import '../../models/usage_snapshot.dart';
 import '../../platform/platform.dart' as platform;
 import '../../util/json_utils.dart';
+import '../browser_cookie_source.dart';
 import '../fields.dart';
 import '../provider.dart';
 import 'cursor_session.dart';
@@ -49,8 +50,10 @@ class CursorProvider extends UsageProvider {
     ProviderField.cookie(
       label: 'cursor.com Cookie',
       hint: 'WorkosCursorSessionToken=...',
-      help: '浏览器登录 cursor.com → 开发者工具 → 网络 → 任一请求的 Cookie 请求头',
+      help: '浏览器登录 cursor.com → 开发者工具 → 网络 → 任一请求的 Cookie 请求头；桌面端也可留空，自动读取浏览器登录',
+      required: false,
     ),
+    cookieSourceField,
   ];
 
   @override
@@ -73,7 +76,7 @@ class CursorProvider extends UsageProvider {
 
   @override
   Future<UsageSnapshot> fetch(AccountConfig account, FetchContext ctx) async {
-    final session = await _session(account);
+    final session = await _session(account, ctx);
     if (session.isExpired(ctx.now())) {
       throw ProviderException(
         'Cursor 登录已过期',
@@ -129,7 +132,7 @@ class CursorProvider extends UsageProvider {
     required DateTime to,
   }) async {
     try {
-      final session = await _session(account);
+      final session = await _session(account, ctx);
       if (session.isExpired(ctx.now())) return null;
       final events = await _fetchEvents(session, from, to, ctx);
       if (events == null) return null;
@@ -186,13 +189,17 @@ class CursorProvider extends UsageProvider {
     }
   }
 
-  Future<CursorSession> _session(AccountConfig account) async {
+  Future<CursorSession> _session(AccountConfig account, FetchContext ctx) async {
     if (account.sourceType == SourceType.apiKey) {
-      final secret = FieldValues.of(this, account)[ProviderField.secretKey];
-      if (secret == null) {
-        throw ProviderException('未填写 Cursor Cookie', hint: '在账户设置中粘贴 cursor.com 的 Cookie');
-      }
-      final session = CursorSession.fromManual(secret);
+      // The signed-in browser's cookies when allowed (desktop, read-only), else the pasted one.
+      final resolved = await resolveAccountCookie(
+        this,
+        account,
+        ctx,
+        hosts: const ['cursor.com', 'www.cursor.com'],
+        requiredNames: const ['WorkosCursorSessionToken'],
+      );
+      final session = CursorSession.fromManual(resolved.header);
       if (session == null) {
         throw ProviderException('无法识别的 Cursor Cookie', hint: '需要包含 WorkosCursorSessionToken');
       }

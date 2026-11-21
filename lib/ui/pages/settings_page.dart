@@ -127,6 +127,12 @@ class SettingsPage extends StatelessWidget {
                         onChanged: (v) => update(s.copyWith(allowCliFallback: v)),
                       ),
                       SwitchListTile(
+                        title: Text(l.allowBrowserCookies),
+                        subtitle: Text(l.allowBrowserCookiesHint),
+                        value: s.allowBrowserCookies,
+                        onChanged: (v) => update(s.copyWith(allowBrowserCookies: v)),
+                      ),
+                      SwitchListTile(
                         title: Text(l.allowClaudeRefresh),
                         subtitle: Text(l.allowClaudeRefreshHint),
                         value: s.allowClaudeRefresh,

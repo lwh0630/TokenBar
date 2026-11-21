@@ -253,7 +253,7 @@ void main() {
       expect(find.text('本机 Cursor 登录'), findsOneWidget);
       await tester.tap(find.text('手动粘贴 Cookie'));
       await tester.pumpAndSettle();
-      expect(find.text('cursor.com Cookie'), findsOneWidget);
+      expect(find.text(l.optionalField('cursor.com Cookie')), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -285,7 +285,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cursor').last);
     await tester.pumpAndSettle();
-    expect(find.text('cursor.com Cookie'), findsOneWidget);
+    expect(find.text(l.optionalField('cursor.com Cookie')), findsOneWidget);
     expect(availableProviders.map((p) => p.id), isNot(contains('codex')));
     expect(availableProviders.map((p) => p.id), isNot(contains('claude')));
   });
@@ -349,7 +349,7 @@ void main() {
     await tester.tap(find.text('Xiaomi MiMo').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('platform.xiaomimimo.com Cookie'), findsOneWidget);
+    expect(find.textContaining('platform.xiaomimimo.com Cookie'), findsOneWidget);
     expect(find.textContaining('api-platform_serviceToken'), findsWidgets);
     expect(find.textContaining(l.storedInKeychain), findsOneWidget);
     expect(availableProviders.map((p) => p.id), contains('mimo'));
@@ -371,7 +371,8 @@ void main() {
     final field = tester.widget<TextField>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextField && widget.decoration?.labelText == 'platform.xiaomimimo.com Cookie',
+            widget is TextField &&
+            (widget.decoration?.labelText ?? '').contains('platform.xiaomimimo.com Cookie'),
       ),
     );
     expect(field.controller!.text, isEmpty);

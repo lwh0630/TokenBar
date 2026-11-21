@@ -18,7 +18,19 @@ import '../provider.dart';
   final allocation = asDouble(json['diemEpochAllocation']);
   RateWindow w(double used) => quotaWindow('venice-balance', '余额', usedPercent: used);
   String f(double v) => v.toStringAsFixed(2);
-  if (!canConsume) return (window: w(100), text: '余额暂不可用于 API 调用');
+  if (!canConsume) {
+    // Blocked for API calls, but the API still reports the balance: show it
+    // (CodexBar venice.js) rather than a generic message.
+    final knownUsd = usd != null && (currency == 'USD' || diem == null);
+    return (
+      window: w(100),
+      text: knownUsd
+          ? '\$${f(usd)} USD（API 调用已被限制）'
+          : diem != null
+          ? 'DIEM ${f(diem)}（API 调用已被限制）'
+          : '余额暂不可用于 API 调用',
+    );
+  }
   if (currency == 'USD' && (usd ?? 0) > 0) return (window: w(0), text: '\$${f(usd!)} USD 剩余');
   if (currency != 'USD' && diem != null && (allocation ?? 0) > 0) {
     return (

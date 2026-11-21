@@ -105,6 +105,24 @@ const _codexPrices = <String, CodexPrice>{
     outputLong: 1.5e-5,
   ),
   'gpt-6-sol': CodexPrice.longContext(input: 2e-6, cached: 2e-7, output: 1e-5, outputLong: 1.5e-5),
+  'gpt-6.1-terra': CodexPrice.longContext(
+    input: 1e-6,
+    cached: 5e-8,
+    output: 5e-6,
+    outputLong: 7.5e-6,
+  ),
+  'gpt-6.2-astra': CodexPrice.longContext(
+    input: 8e-6,
+    cached: 4e-7,
+    output: 4e-5,
+    outputLong: 6e-5,
+  ),
+  'gpt-6.2-sol': CodexPrice.longContext(
+    input: 2e-6,
+    cached: 1e-7,
+    output: 1e-5,
+    outputLong: 1.5e-5,
+  ),
   'gpt-6-luna': CodexPrice.longContext(input: 1e-7, cached: 1e-8, output: 5e-7, outputLong: 7.5e-7),
   // Sol was repriced from $5/$30 to $4/$20 on 2026-08-21 (see [_historicalCodexPrices]).
   'gpt-5.6-sol': CodexPrice.longContext(input: 4e-6, cached: 4e-7, output: 2e-5, outputLong: 3e-5),

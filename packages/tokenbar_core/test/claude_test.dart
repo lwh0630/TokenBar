@@ -36,6 +36,21 @@ void main() {
     expect(extra.currency, 'USD');
   });
 
+  test('weekly-only plans produce no empty session window', () {
+    final parsed = parseClaudeOAuthUsage({
+      'five_hour': null,
+      'seven_day': {'utilization': 12.0, 'resets_at': '2025-11-08T04:59:59+00:00'},
+      'seven_day_sonnet': {'utilization': 4.0, 'resets_at': null},
+    });
+    expect(parsed.windows.map((w) => w.id), ['weekly', 'weekly_sonnet']);
+    // An unusable five-hour entry is dropped too, not rendered as 0%.
+    final noUtilization = parseClaudeOAuthUsage({
+      'five_hour': {'utilization': null, 'resets_at': null},
+      'seven_day': {'utilization': 12.0, 'resets_at': null},
+    });
+    expect(noUtilization.windows.map((w) => w.id), ['weekly']);
+  });
+
   test('plan names', () {
     expect(claudePlanName('max', 'default_claude_max_20x'), 'Max 20x');
     expect(claudePlanName('pro', null), 'Pro');

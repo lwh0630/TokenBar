@@ -5,6 +5,7 @@ import '../models/credits.dart';
 import '../models/model_usage.dart';
 import '../models/rate_window.dart';
 import '../models/usage_snapshot.dart';
+import '../platform/browser_cookies.dart' show BrowserCookieEnvironment;
 import 'fields.dart';
 
 /// Shared dependencies for a fetch.
@@ -14,6 +15,7 @@ class FetchContext {
     DateTime Function()? clock,
     this.allowClaudeTokenRefresh = false,
     this.allowCliFallback = true,
+    this.browserCookies,
     this.userAgent = 'TokenBar',
   }) : client = client ?? http.Client(),
        clock = clock ?? DateTime.now;
@@ -27,6 +29,11 @@ class FetchContext {
 
   /// Allow launching provider CLIs (e.g. `codex app-server`) as a fallback.
   final bool allowCliFallback;
+
+  /// Opt-in: lets providers that support it read the signed-in browser's cookies (read-only,
+  /// desktop only, see `resolveCookieHeader`). Null (the default) means never touch a browser,
+  /// which is what every test relies on; the app and the CLI pass one explicitly.
+  final BrowserCookieEnvironment? browserCookies;
   final String userAgent;
 
   DateTime now() => clock();

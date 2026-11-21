@@ -12,6 +12,7 @@ export 'process_types.dart';
 const bool localAccessSupported = true;
 final bool isMacOS = Platform.isMacOS;
 final bool isWindows = Platform.isWindows;
+final bool isLinux = Platform.isLinux;
 final String pathSeparator = Platform.pathSeparator;
 
 String? envVar(String name) {
@@ -59,7 +60,9 @@ Future<DateTime?> fileModified(String path) async {
   }
 }
 
-/// Lists the direct children of [path] (read-only; symlinks are not followed). Files get
+/// Lists the direct children of [path] (read-only). Symlinks to files or directories are
+/// resolved to what they point at (so a `sessions/` tree linked to another disk still
+/// lists); the listing itself never recurses, so a link loop cannot hang it. Files get
 /// their modification time and size. Returns an empty list when the directory is missing
 /// or unreadable.
 Future<List<LocalFileEntry>> listDirectory(String path) async {
@@ -67,8 +70,18 @@ Future<List<LocalFileEntry>> listDirectory(String path) async {
   try {
     final dir = Directory(path);
     if (!await dir.exists()) return entries;
-    await for (final entity in dir.list(followLinks: false)) {
-      final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).lastOrNull ?? entity.path;
+    await for (final raw in dir.list(followLinks: false)) {
+      final name = raw.uri.pathSegments.where((s) => s.isNotEmpty).lastOrNull ?? raw.path;
+      var entity = raw;
+      if (entity is Link) {
+        // Broken links resolve to notFound and are dropped below.
+        final target = await FileSystemEntity.type(entity.path);
+        if (target == FileSystemEntityType.directory) {
+          entity = Directory(entity.path);
+        } else if (target == FileSystemEntityType.file) {
+          entity = File(entity.path);
+        }
+      }
       if (entity is Directory) {
         entries.add(LocalFileEntry(path: entity.path, name: name, isDirectory: true));
       } else if (entity is File) {
@@ -155,6 +168,58 @@ Future<List<List<Object?>>> readSqliteRows(
     return const [];
   } finally {
     db.close();
+  }
+}
+
+/// Like [readSqliteRows] but distinguishes failure (null: missing, locked or unreadable)
+/// from an empty result. With [copyFirst] the database (plus its `-wal` / `-journal`) is
+/// copied to a private temp directory and read from there, which is the only way to read a
+/// Chromium cookie store that the running browser holds open; the copy is deleted again.
+/// The original file is never written to.
+Future<List<List<Object?>>?> readSqliteRowsOrNull(
+  String dbPath,
+  String sql, [
+  List<Object?> params = const [],
+  bool copyFirst = false,
+]) async {
+  if (!await File(dbPath).exists()) return null;
+  Directory? temp;
+  var target = dbPath;
+  try {
+    if (copyFirst) {
+      temp = await Directory.systemTemp.createTemp('tokenbar-db-');
+      target = '${temp.path}${Platform.pathSeparator}copy.sqlite';
+      await File(dbPath).copy(target);
+      for (final suffix in const ['-wal', '-journal']) {
+        final side = File('$dbPath$suffix');
+        if (await side.exists()) {
+          try {
+            await side.copy('$target$suffix');
+          } on FileSystemException {
+            // A missing side file only costs the newest rows.
+          }
+        }
+      }
+    }
+    // The copy is ours, so it is opened read-write to let SQLite replay the WAL into it.
+    final db = sqlite3.open(target, mode: copyFirst ? OpenMode.readWrite : OpenMode.readOnly);
+    try {
+      return [for (final row in db.select(sql, params)) row.values];
+    } finally {
+      db.close();
+    }
+  } on SqliteException {
+    return null;
+  } on FileSystemException {
+    return null;
+  } finally {
+    if (temp != null) {
+      try {
+        await temp.delete(recursive: true);
+      } on FileSystemException {
+        // Best effort; the OS cleans the temp directory eventually.
+      }
+    }
   }
 }
 

@@ -60,6 +60,7 @@ class AppSettings {
     this.serverToken = '',
     this.deviceName = '',
     this.allowCliFallback = true,
+    this.allowBrowserCookies = true,
     this.allowClaudeRefresh = false,
     this.launchAtStartup = false,
     this.minimizeToTray = true,
@@ -90,6 +91,9 @@ class AppSettings {
   final String serverToken;
   final String deviceName;
   final bool allowCliFallback;
+
+  /// Let providers read the signed-in browser's cookies (read-only, desktop, per-account opt-out).
+  final bool allowBrowserCookies;
   final bool allowClaudeRefresh;
   final bool launchAtStartup;
   final bool minimizeToTray;
@@ -127,6 +131,7 @@ class AppSettings {
     String? serverToken,
     String? deviceName,
     bool? allowCliFallback,
+    bool? allowBrowserCookies,
     bool? allowClaudeRefresh,
     bool? launchAtStartup,
     bool? minimizeToTray,
@@ -149,6 +154,7 @@ class AppSettings {
     serverToken: serverToken ?? this.serverToken,
     deviceName: deviceName ?? this.deviceName,
     allowCliFallback: allowCliFallback ?? this.allowCliFallback,
+    allowBrowserCookies: allowBrowserCookies ?? this.allowBrowserCookies,
     allowClaudeRefresh: allowClaudeRefresh ?? this.allowClaudeRefresh,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     minimizeToTray: minimizeToTray ?? this.minimizeToTray,
@@ -173,6 +179,7 @@ class AppSettings {
     'serverUrl': serverUrl,
     'deviceName': deviceName,
     'allowCliFallback': allowCliFallback,
+    'allowBrowserCookies': allowBrowserCookies,
     'allowClaudeRefresh': allowClaudeRefresh,
     'launchAtStartup': launchAtStartup,
     'minimizeToTray': minimizeToTray,
@@ -210,6 +217,7 @@ class AppSettings {
       serverToken: token,
       deviceName: pick<String>('deviceName', d.deviceName),
       allowCliFallback: pick<bool>('allowCliFallback', d.allowCliFallback),
+      allowBrowserCookies: pick<bool>('allowBrowserCookies', d.allowBrowserCookies),
       allowClaudeRefresh: pick<bool>('allowClaudeRefresh', d.allowClaudeRefresh),
       launchAtStartup: pick<bool>('launchAtStartup', d.launchAtStartup),
       minimizeToTray: pick<bool>('minimizeToTray', d.minimizeToTray),

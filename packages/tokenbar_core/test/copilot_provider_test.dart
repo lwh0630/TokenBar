@@ -211,6 +211,23 @@ void main() {
     expect(parseCopilotUsage(json).credits.single.used, 7);
   });
 
+  test('an ended subscription is explained instead of reported as unparseable', () {
+    expect(
+      () => parseCopilotUsage({
+        'login': 'fixture-user',
+        'access_type_sku': 'subscription_ended',
+        'copilot_plan': 'individual',
+        'chat_enabled': false,
+      }),
+      throwsA(isA<ProviderException>().having((e) => e.message, 'message', contains('已结束'))),
+    );
+    // Any other quota-less answer keeps the generic message.
+    expect(
+      () => parseCopilotUsage({'copilot_plan': 'individual', 'access_type_sku': 'future'}),
+      throwsA(isA<ProviderException>().having((e) => e.message, 'message', contains('无法解析'))),
+    );
+  });
+
   test('valid chat credits outrank a premium placeholder when completions are absent', () {
     final json = _fixture();
     _quotas(json).remove('completions');

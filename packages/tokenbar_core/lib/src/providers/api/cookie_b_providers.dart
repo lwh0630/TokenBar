@@ -10,6 +10,7 @@ import '../../models/rate_window.dart';
 import '../../models/usage_snapshot.dart';
 import '../../util/json_utils.dart';
 import '../common.dart';
+import '../browser_cookie_source.dart';
 import '../fields.dart';
 import '../http_support.dart';
 import '../provider.dart';
@@ -268,14 +269,49 @@ class MiMoProvider extends _CookieProvider {
   int get brandColor => 0xFFFF6900;
   @override
   String get setupHint =>
-      '浏览器登录 platform.xiaomimimo.com，在开发者工具里复制任一请求的 Cookie 请求头（需包含 api-platform_serviceToken 与 userId），查询余额与 Token Plan 用量。';
+      '两种方式任选其一：① Token Plan 专用 Key（tp- 开头，在 Token Plan 控制台创建，不需要 Cookie，手机端也可用，只显示套餐额度）；'
+      '② 桌面端在浏览器登录 platform.xiaomimimo.com 后自动读取登录状态（只读），额外显示账户余额；也可手动粘贴 Cookie 请求头（需包含 api-platform_serviceToken 与 userId）。';
   @override
   List<ProviderField> get fields => const [
     ProviderField.cookie(
-      label: 'platform.xiaomimimo.com Cookie',
-      hint: 'api-platform_serviceToken=...; userId=...',
+      label: 'Token Plan Key 或 platform.xiaomimimo.com Cookie',
+      hint: 'tp-... 或 api-platform_serviceToken=...; userId=...',
+      help: 'Token Plan Key 以 tp- 开头；普通推理 API Key 不能用于查询。Cookie 在开发者工具 → 网络 → 任一请求的 Cookie 请求头',
+      required: false,
     ),
+    ProviderField(
+      key: 'region',
+      label: 'Token Plan 区域',
+      kind: FieldKind.choice,
+      required: false,
+      defaultValue: 'cn',
+      choices: [FieldChoice('cn', '中国大陆 token-plan-cn'), FieldChoice('sgp', '新加坡 token-plan-sgp')],
+      envVars: ['MIMO_TOKEN_PLAN_REGION'],
+    ),
+    cookieSourceField,
   ];
+
+  static const _cookieHosts = ['platform.xiaomimimo.com', 'xiaomimimo.com'];
+  static const _requiredCookies = ['api-platform_serviceToken', 'userId'];
+
+  /// A bare `tp-` key (no `name=value` pairs) selects the Token Plan API.
+  static bool isTokenPlanKey(String input) {
+    final token = bareToken(input);
+    return token.startsWith('tp-') && !token.contains('=') && !token.contains(';');
+  }
+
+  @override
+  String? validateManual(FieldValues values) {
+    final input = values[ProviderField.secretKey] ?? '';
+    if (isTokenPlanKey(input)) return null;
+    // Nothing pasted is fine while the browser's login is the source.
+    if (input.trim().isEmpty) {
+      return cookieSourceIsAuto(values)
+          ? null
+          : '请粘贴 Token Plan Key（tp- 开头）或 Cookie，或把「Cookie 来源」改为自动读取浏览器';
+    }
+    return super.validateManual(values);
+  }
 
   @override
   String? cookieProblem(String header) =>
@@ -283,9 +319,33 @@ class MiMoProvider extends _CookieProvider {
 
   @override
   Future<UsageSnapshot> fetch(AccountConfig account, FetchContext ctx) async {
+    final values = FieldValues.of(this, account);
+    final pasted = values[ProviderField.secretKey] ?? '';
+    if (isTokenPlanKey(pasted)) {
+      final region = values['region'] == 'sgp' ? 'sgp' : 'cn';
+      final result = await sendRequest(
+        ctx,
+        displayName,
+        Uri.parse('https://token-plan-$region.xiaomimimo.com/v1/platform/token_plan'),
+        headers: {'Authorization': 'Bearer ${bareToken(pasted)}'},
+      );
+      checkStatus(displayName, result, authHint: '检查 Token Plan Key（tp- 开头）与所选区域是否一致');
+      final json = asMap(result.json) ?? (throw ProviderException('Xiaomi MiMo 返回了无法解析的数据'));
+      return parseMiMoTokenPlan(snapshot(account, ctx), json);
+    }
+    final resolved = await resolveAccountCookie(
+      this,
+      account,
+      ctx,
+      hosts: _cookieHosts,
+      requiredNames: _requiredCookies,
+    );
+    final cookie = normalizeCookieHeader(resolved.header);
+    final problem = cookieProblem(cookie);
+    if (problem != null) throw ProviderException('$displayName $problem', hint: setupHint);
     final headers = {
       'Accept': 'application/json, text/plain, */*',
-      'Cookie': _keepCookies(cookieOf(account), const {
+      'Cookie': _keepCookies(cookie, const {
         'api-platform_serviceToken',
         'userId',
         'api-platform_ph',
@@ -410,6 +470,54 @@ ProviderException _mimoCodeError(int? code, String? message) => switch (code) {
     currency: currency,
     cash: asDouble(data['cashBalance']),
     gift: asDouble(data['giftBalance']),
+  );
+}
+
+/// Token Plan API (`GET .../v1/platform/token_plan`, bearer `tp-` key). Credits are quota
+/// units, not money; the timezone-less timestamps are documented as UTC. Inconsistent
+/// counts fail instead of being shown (CodexBar `mimo.ts`).
+UsageSnapshot parseMiMoTokenPlan(UsageSnapshot base, Map<String, Object?> json) {
+  ProviderException bad() =>
+      ProviderException('Xiaomi MiMo 返回数据格式无法识别', hint: '接口可能已变更，请更新 TokenBar');
+  if (json['object'] != 'token_plan') throw bad();
+  final quota = asMap(json['quota']) ?? (throw bad());
+  int count(Object? v) => v is int && v >= 0 ? v : throw bad();
+  final total = count(quota['total_credits']);
+  final used = count(quota['used_credits']);
+  final remaining = count(quota['remaining_credits']);
+  if (remaining != max(0, total - used)) throw bad();
+  final period = asMap(json['period']) ?? const <String, Object?>{};
+  DateTime? date(Object? v) {
+    if (v == null) return null;
+    if (v is! String || !RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$').hasMatch(v)) throw bad();
+    return DateTime.tryParse('${v.replaceFirst(' ', 'T')}Z') ?? (throw bad());
+  }
+
+  final start = date(period['start_at']);
+  final end = date(period['end_at']);
+  if (start != null && end != null && !end.isAfter(start)) throw bad();
+  final minutes = start != null && end != null ? end.difference(start).inMinutes : null;
+  final plan = asString(json['plan_code']);
+  return UsageSnapshot(
+    accountId: base.accountId,
+    providerId: base.providerId,
+    fetchedAt: base.fetchedAt,
+    plan: plan == null ? null : _capitalized(plan),
+    source: 'api-key',
+    windows: [
+      if (total > 0)
+        quotaWindow(
+          'mimo-plan',
+          '套餐额度',
+          usedPercent: used / total * 100,
+          resetsAt: end,
+          windowMinutes: minutes != null && minutes > 0 ? minutes : null,
+        ),
+    ],
+    extras: {
+      if (total > 0)
+        '套餐用量': '${_groupNum(used.toDouble())} / ${_groupNum(total.toDouble())} Credits',
+    },
   );
 }
 

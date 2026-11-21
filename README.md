@@ -15,11 +15,11 @@ English | [简体中文](README.zh-CN.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Android%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS-2ea44f)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![Providers](https://img.shields.io/badge/providers-53-8A63D2)
+![Providers](https://img.shields.io/badge/providers-57-8A63D2)
 
 </div>
 
-> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 53 services.
+> Inspired by [CodexBar](https://github.com/steipete/CodexBar) for macOS. TokenBar brings the same idea to Windows, Android, Linux and iOS (and ships a macOS build too), and covers 57 services.
 
 ## Why TokenBar
 
@@ -81,7 +81,7 @@ Three ways to read a service:
 
 - **Local login**: reuses the login of the official client already on the machine (read-only). Desktop only.
 - **API key / token**: paste it once. Works on desktop, phone and web. On desktop, an empty field falls back to the provider's usual environment variable.
-- **Cookie**: copy the `Cookie` request header from your browser's developer tools. These endpoints are not public and may change without notice.
+- **Cookie**: on desktop TokenBar can read the session cookie of the browser you are already signed in with (Firefox, Chrome, Edge, Brave, ... — read-only, only that service's cookies, nothing stored; Settings → Data sources can turn it off, and each account can use a pasted cookie instead). Otherwise copy the `Cookie` request header from your browser's developer tools. These endpoints are not public and may change without notice. Chrome / Edge 127+ on Windows protect their cookies with app-bound encryption, which TokenBar does not bypass: use Firefox or paste the cookie there.
 
 ### Subscriptions (local login)
 
@@ -95,7 +95,7 @@ Three ways to read a service:
 For **Gemini**, desktop users can reuse the Gemini CLI's Google login (read-only; since Google stopped serving Gemini CLI OAuth for individual, AI Pro and Ultra accounts in June 2026, this path needs a Workspace, education or Code Assist Standard/Enterprise account). Alternatively paste an OAuth access token from `~/.gemini/oauth_creds.json`, or a `Cookie` header copied from a request to gemini.google.com/usage in your browser's developer tools — the cookie path shows the Gemini app's 5-hour and weekly limits and works for consumer plans. Add it in **Accounts → Add account → Gemini**. Tokens and cookies are never refreshed; re-login in the Gemini CLI or paste a new cookie when they expire. On desktop, when a fetch reports a signed-out session and Firefox holds a live gemini.google.com login, TokenBar automatically reads the session from Firefox's own cookie store (`cookies.sqlite`, plain SQLite, read-only while Firefox runs) — the browser keeps the short-lived session tokens fresh, so this path keeps working without re-pasting. Cookies and tokens are never written back.
 
 <details>
-<summary><b>Official API keys (23)</b></summary>
+<summary><b>Official API keys (27)</b></summary>
 
 | Service | What you see |
 | --- | --- |
@@ -122,6 +122,10 @@ For **Gemini**, desktop users can reuse the Gemini CLI's Google login (read-only
 | Warp | AI request quota, bonus credits |
 | Synthetic | Rolling, weekly and search quotas |
 | Chutes | 4-hour rolling and monthly quotas |
+| abliteration.ai | Prepaid USD credits and cumulative usage |
+| TrustedRouter | Key limit remaining, daily / weekly / monthly / total spend |
+| Tripo | Available and reserved credits |
+| SiliconFlow | USD balance (international API key; the China balance API was retired) |
 
 </details>
 
@@ -171,13 +175,13 @@ For **Gemini**, desktop users can reuse the Gemini CLI's Google login (read-only
 | Chatbox AI | Plan / bonus / top-up / image quota (license key) |
 | IBM Bob | Bobcoin budget per team |
 | GitHub Copilot | Metered quota and credits usage reported by GitHub (GitHub token) |
-| Xiaomi MiMo | Account balance and Token Plan usage (pasted platform cookie) |
+| Xiaomi MiMo | Token Plan quota (`tp-` key) or account balance + plan usage (platform cookie) |
 
 For **GitHub Copilot**, paste a GitHub token authorized for the account's Copilot usage in **Accounts → Add account → GitHub Copilot**. The [CodexBar integration](https://github.com/steipete/CodexBar/blob/5f93dc3068b3bee3f8753f3772614cc2949c335d/Sources/CodexBarCore/Providers/Copilot/CopilotUsageFetcher.swift) uses the GitHub OAuth token itself (`gho_...`), rather than a short-lived Copilot service token. Desktop users can also supply `COPILOT_API_TOKEN`; an optional Enterprise host selects that account's API host. TokenBar does not provide a device-login flow or automatically discover other clients' saved Copilot logins.
 
 Copilot usage comes from the non-public `/copilot_internal/user` endpoint and depends on the token's access. When GitHub returns metered quota values, they are shown directly; if it returns only `credits_used`, TokenBar shows credits used without inventing a remaining amount or percentage. Unlimited or placeholder quotas do not become 100% remaining bars. GitHub web billing budgets and a user-entered seat allowance are not included in this integration.
 
-For **Xiaomi MiMo**, sign in to `platform.xiaomimimo.com` and copy a request's `Cookie` header from your browser's developer tools. It must include `api-platform_serviceToken` and `userId`. Paste it in **Accounts → Add account → Xiaomi MiMo**. The app reads the platform's non-public balance and Token Plan endpoints using this session cookie; inference API keys and automatic browser-cookie import are not supported for MiMo. Replace the cookie when the platform session expires. Plan usage is shown only when returned by the platform; a balance-only account does not gain a synthetic quota window.
+For **Xiaomi MiMo** there are two ways. A **Token Plan key** (starts with `tp-`, created in the Token Plan console; pick the China mainland or Singapore region) needs no cookie, works on phones and shows the plan quota; ordinary inference API keys cannot be used. Or sign in to `platform.xiaomimimo.com`: on desktop the signed-in browser session is read automatically, otherwise copy a request's `Cookie` header (it must include `api-platform_serviceToken` and `userId`) and paste it in **Accounts → Add account → Xiaomi MiMo**; this also shows the account balance from the platform's non-public endpoints. Replace the cookie when the platform session expires. Plan usage is shown only when returned by the platform; a balance-only account does not gain a synthetic quota window.
 
 </details>
 
@@ -201,7 +205,7 @@ Each provider reads documented or reverse-documented endpoints taken from CodexB
 
 - **Credentials stay on your device**, in the platform secure store (`flutter_secure_storage`). They never go into logs, snapshots or the sync server, and they are not part of any exported JSON.
 - **Read-only by default.** TokenBar never refreshes or rewrites another tool's tokens (refreshing rotates the refresh token and can sign the official client out). Refreshing Claude's token is an explicit opt-in setting, off by default.
-- **No passwords, no simulated logins.** Only an existing local login, or a key / cookie that you paste yourself.
+- **No passwords, no simulated logins.** Only an existing local login, a key / cookie that you paste yourself, or (desktop, switchable) the session cookie of a browser you are already signed in with. Browser cookies are read-only, limited to the service being queried, never stored, logged or synced, and a locked browser database is only read from a temporary copy that is deleted again.
 - **The sync server is optional** and only receives usage snapshots.
 - **The update check is one anonymous request** to the GitHub API. See [Updates](#updates).
 

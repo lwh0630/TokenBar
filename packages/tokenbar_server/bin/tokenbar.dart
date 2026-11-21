@@ -101,11 +101,17 @@ ArgParser _commonFetchOptions(ArgParser p) => p
     negatable: false,
     help: 'Refresh expired Claude tokens and write them back (rotates refresh token)',
   )
-  ..addFlag('no-cli', negatable: false, help: 'Never launch provider CLIs');
+  ..addFlag('no-cli', negatable: false, help: 'Never launch provider CLIs')
+  ..addFlag(
+    'no-browser-cookies',
+    negatable: false,
+    help: 'Never read browser cookies (Xiaomi MiMo, Cursor, Gemini)',
+  );
 
 FetchContext _ctx(ArgResults r) => FetchContext(
   allowClaudeTokenRefresh: r['allow-claude-refresh'] as bool,
   allowCliFallback: !(r['no-cli'] as bool),
+  browserCookies: (r['no-browser-cookies'] as bool) ? null : const BrowserCookieEnvironment(),
   userAgent: 'TokenBar/0.1',
 );
 

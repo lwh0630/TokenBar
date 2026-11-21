@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -23,7 +24,7 @@ Future<(UsageSnapshot, List<http.Request>)> _run(
         final v = e.value;
         return v is int
             ? http.Response('{}', v)
-            : http.Response.bytes((v as String).codeUnits, 200);
+            : http.Response.bytes(utf8.encode(v as String), 200);
       }
     }
     return http.Response('not found', 404);
@@ -158,6 +159,25 @@ void main() {
     expect(u.extras['余额'], contains('25.75'));
   });
 
+  test('venice blocked account still shows the fetched balance', () async {
+    String body(String balances, String currency) =>
+        '{"canConsume":false,"consumptionCurrency":"$currency","balances":$balances,'
+        '"diemEpochAllocation":null}';
+    final (usd, _) = await _run('venice', {
+      '/billing/balance': body('{"diem":null,"usd":3.5}', 'USD'),
+    });
+    expect(usd.windows.single.usedPercent, 100);
+    expect(usd.extras['余额'], contains('3.50'));
+    final (diem, _) = await _run('venice', {
+      '/billing/balance': body('{"diem":1.25,"usd":null}', 'DIEM'),
+    });
+    expect(diem.extras['余额'], contains('DIEM 1.25'));
+    final (none, _) = await _run('venice', {
+      '/billing/balance': body('{"diem":null,"usd":null}', 'DIEM'),
+    });
+    expect(none.extras['余额'], contains('暂不可用'));
+  });
+
   test('deepinfra balance and spend limit', () async {
     final (s, _) = await _run('deepinfra', {
       '/payment/checklist': _fixture('deepinfra_checklist.json'),
@@ -261,6 +281,69 @@ void main() {
     expect(s.email, 'litellm-user@example.com');
   });
 
+  test('litellm member budget inside the team, ignoring other memberships', () async {
+    const userInfo = '''{
+      "user_info": {"user_id": "user-123", "spend": 50, "max_budget": null},
+      "teams": [{
+        "team_id": "team-456", "team_alias": "ai", "spend": 900, "max_budget": 1000,
+        "team_memberships": [
+          {"user_id": "someone-else", "spend": 1, "litellm_budget_table": {"max_budget": 2}},
+          {"user_id": "user-123", "team_id": "team-other", "spend": 3,
+           "litellm_budget_table": {"max_budget": 4}},
+          {"user_id": "user-123", "team_id": "team-456", "spend": 25,
+           "litellm_budget_table": {"max_budget": 100, "budget_reset_at": "2026-06-15T00:00:00Z"}}
+        ]
+      }]
+    }''';
+    final (s, req) = await _run(
+      'litellm',
+      {'/key/info': '{"info":{"user_id":"user-123","team_id":"team-456"}}', '/user/info': userInfo},
+      options: {'baseUrl': 'https://proxy.example.com'},
+    );
+    expect(req.any((r) => r.url.path.contains('team/info')), isFalse);
+    expect(s.windows.map((w) => w.id), ['litellm-personal', 'litellm-team']);
+    expect(s.windows[0].usedPercent, 25);
+    expect(s.windows[0].resetsAt, DateTime.utc(2026, 6, 15));
+    expect(s.windows[1].usedPercent, 90);
+  });
+
+  test('litellm falls back to the team default member budget from team/info', () async {
+    const userInfo = '''{
+      "user_info": {"user_id": "user-123", "spend": 50},
+      "teams": [{"team_id": "team-456", "team_alias": "ai", "spend": 10, "max_budget": null,
+        "team_memberships": [{"user_id": "user-123", "spend": 20}]}]
+    }''';
+    const teamInfo = '''{
+      "team_info": {"team_id": "team-456", "team_member_budget_table": {"max_budget": 80}}
+    }''';
+    final (s, _) = await _run(
+      'litellm',
+      {
+        '/key/info': '{"info":{"user_id":"user-123","team_id":"team-456"}}',
+        '/user/info': userInfo,
+        '/team/info': teamInfo,
+      },
+      options: {'baseUrl': 'https://proxy.example.com'},
+    );
+    expect(s.windows.single.id, 'litellm-personal');
+    expect(s.windows.single.usedPercent, 25);
+
+    // A team/info answer for another team must not be trusted.
+    final (m, _) = await _run(
+      'litellm',
+      {
+        '/key/info': '{"info":{"user_id":"user-123","team_id":"team-456"}}',
+        '/user/info': userInfo,
+        '/team/info':
+            '{"team_info":{"team_id":"team-zzz","team_member_budget_table":'
+            '{"max_budget":80}}}',
+      },
+      options: {'baseUrl': 'https://proxy.example.com'},
+    );
+    expect(m.windows, isEmpty);
+    expect(m.error, isNull);
+  });
+
   test('litellm rejects public http', () async {
     final (s, req) = await _run('litellm', {}, options: {'baseUrl': 'http://proxy.example.com'});
     expect(req, isEmpty);
@@ -351,6 +434,41 @@ void main() {
     expect(s.windows.first.usedPercent, 42);
   });
 
+  test('zai bigmodel-cn prepaid account without a coding plan shows its balance', () async {
+    const noPlan = '{"success":false,"code":500,"msg":"当前用户不存在coding plan"}';
+    const balance =
+        '{"success":true,"data":{"availableBalance":"12.5","balance":3,'
+        '"rechargeAmount":20,"giveAmount":0,"totalSpendAmount":7.5}}';
+    final (s, req) = await _run('zai', {
+      '/quota/limit': noPlan,
+      '/query-customer-account-report': balance,
+    });
+    expect(s.error, isNull);
+    expect(s.windows, isEmpty);
+    expect(_credit(s, 'zai-balance').balance, 12.5);
+    expect(_credit(s, 'zai-balance').currency, 'CNY');
+    expect(s.extras['累计消费'], contains('7.50'));
+    expect(s.extras.containsKey('赠送金额'), isFalse);
+    expect(req.last.url.host, 'www.bigmodel.cn');
+
+    // No plan and no balance: report the original error instead of an empty card.
+    final (e, _) = await _run('zai', {'/quota/limit': noPlan});
+    expect(e.error, contains('当前用户不存在coding plan'));
+  });
+
+  test('zai balance is CN-only and never breaks the quota', () async {
+    final (cn, _) = await _run('zai', {'/quota/limit': _fixture('zai_quota_limit.json')});
+    expect(cn.error, isNull);
+    expect(cn.credits, isEmpty); // the balance request failed (404) and was ignored
+    final (global, req) = await _run(
+      'zai',
+      {'/quota/limit': _fixture('zai_quota_limit.json')},
+      options: {'region': 'global'},
+    );
+    expect(global.error, isNull);
+    expect(req.every((r) => r.url.host == 'api.z.ai'), isTrue);
+  });
+
   test('openrouter credits balance', () async {
     final (s, _) = await _run('openrouter', {'/credits': _fixture('openrouter_credits.json')});
     expect(s.error, isNull);
@@ -363,6 +481,26 @@ void main() {
     expect(req.single.method, 'POST');
     expect(s.windows.first.usedPercent, closeTo(5 / 1500 * 100, 0.001));
     expect(s.windows[1].usedPercent, closeTo(20 / 35 * 100, 0.01));
+  });
+
+  test('synthetic weekly plan limit replaces the retired five-hour counter', () async {
+    const body = '''{
+      "subscription": {"limit": 100, "requests": 60},
+      "rollingFiveHourLimit": {"limit": 100, "requests": 50},
+      "planWeeklyLimit": {
+        "percentRemaining": 99.5, "nextRegenAt": "2026-04-17T05:19:30.000Z",
+        "maxCredits": "\$36.00", "remainingCredits": "\$35.82",
+        "nextRegenCredits": "\$0.72", "nextRegenPercent": 2
+      }
+    }''';
+    final (s, _) = await _run('synthetic', {'/v2/quotas': body});
+    expect(s.error, isNull);
+    expect(s.windows.map((w) => w.id), ['synthetic-weekly']);
+    // percentage points: 0.5% used must not be scaled up to 50%
+    expect(s.windows.single.usedPercent, closeTo(0.5, 1e-9));
+    expect(_credit(s, 'synthetic-credits').limit, 36);
+    expect(s.extras['下次恢复额度'], contains('0.72'));
+    expect(s.extras['下次恢复比例'], '+2%');
   });
 
   test('synthetic quotas', () async {
