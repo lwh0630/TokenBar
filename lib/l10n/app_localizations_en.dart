@@ -840,6 +840,113 @@ class AppLocalizationsEn extends AppLocalizations {
   String get configDirField => 'Config directory (optional)';
 
   @override
+  String get codexSignIn => 'Sign in with ChatGPT';
+
+  @override
+  String get codexSignInHint =>
+      'Sign in to add another Codex account. To use an existing Codex login, enter its config directory below.';
+
+  @override
+  String get codexSignInPreparing => 'Preparing Codex sign-in…';
+
+  @override
+  String get codexSignInWaiting =>
+      'Choose the ChatGPT account to add in your browser. If your main account is already signed in, copy the link and open it in another browser profile or a private window.';
+
+  @override
+  String get codexSignInBrowserFailed =>
+      'Could not open the browser. Copy the link and open it manually.';
+
+  @override
+  String get codexSignInCopyLink => 'Copy sign-in link';
+
+  @override
+  String get codexSignInLinkCopied => 'Link copied';
+
+  @override
+  String get codexSignInTimedOut =>
+      'The sign-in link expired. Close this window and start sign-in again.';
+
+  @override
+  String get codexSignInFailed =>
+      'Codex sign-in did not finish. Check the account selected in your browser and try again.';
+
+  @override
+  String get codexCliMissing =>
+      'Codex was not found. Install or update the official Codex desktop app or CLI.';
+
+  @override
+  String get codexResetCredits => 'Codex reset credits';
+
+  @override
+  String codexResetCount(int count) {
+    return '$count available';
+  }
+
+  @override
+  String codexResetExpiry(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get codexResetNoExpiry => 'No expiration date';
+
+  @override
+  String get codexResetExpired => 'Expired';
+
+  @override
+  String get codexResetDetailsMissing => 'OpenAI did not return all reset credit details.';
+
+  @override
+  String get codexResetUnavailable =>
+      'Could not use the reset credit. Refresh quota and try again.';
+
+  @override
+  String get codexResetAccountChanged =>
+      'The signed-in account changed. Refresh and verify the account before using a reset.';
+
+  @override
+  String get codexResetSignedOut => 'Sign in to a ChatGPT account to use this feature.';
+
+  @override
+  String get codexResetCreditUnavailable => 'This reset credit is no longer available.';
+
+  @override
+  String get codexResetUsageSettings => 'Open ChatGPT usage settings';
+
+  @override
+  String get codexResetBrowserFailed =>
+      'Could not open the browser. Open Usage in ChatGPT settings.';
+
+  @override
+  String get codexResetUse => 'Use';
+
+  @override
+  String get codexResetUseTitle => 'Use this reset credit?';
+
+  @override
+  String codexResetUseBody(String account) {
+    return 'Use one reset credit for $account. Eligible Codex allowances will be restored.';
+  }
+
+  @override
+  String get codexResetUsing => 'Using the reset credit…';
+
+  @override
+  String get codexResetUsed => 'Reset credit used.';
+
+  @override
+  String get codexResetNothingToReset =>
+      'Your usage does not need a reset. Your reset credit is still available.';
+
+  @override
+  String get codexResetUncertain =>
+      'The reset result could not be confirmed. You can retry the same request.';
+
+  @override
+  String get codexResetRetry => 'Retry the same reset';
+
+  @override
   String get homeDirHelper =>
       'Leave blank for the default directory; with several accounts, give each one its own directory';
 

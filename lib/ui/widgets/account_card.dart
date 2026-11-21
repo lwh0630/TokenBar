@@ -4,16 +4,25 @@ import 'package:tokenbar_core/tokenbar_core.dart';
 import '../../app/design/glass.dart';
 import '../../app/design/tokens.dart';
 import '../../l10n/app_localizations.dart';
+import '../../state/codex_reset_credits_controller.dart';
 import '../format.dart';
+import 'codex_reset_credits_card.dart';
 import 'provider_badge.dart';
 import 'window_row.dart';
 
 class AccountCard extends StatelessWidget {
-  const AccountCard({super.key, required this.snapshot, required this.now, this.onTap});
+  const AccountCard({
+    super.key,
+    required this.snapshot,
+    required this.now,
+    this.onTap,
+    this.resetCredits,
+  });
 
   final UsageSnapshot snapshot;
   final DateTime now;
   final VoidCallback? onTap;
+  final CodexResetCreditsController? resetCredits;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +85,13 @@ class AccountCard extends StatelessWidget {
           ],
           for (final c in s.credits) _CreditsRow(credits: c),
           if (s.hasError) _ErrorBox(error: s.error!, hint: s.errorHint, stale: s.hasData),
+          if (resetCredits case final controller?)
+            CodexResetCreditsCard(
+              inline: true,
+              controller: controller,
+              accountLabel: s.accountLabel ?? provider?.displayName ?? s.providerId,
+              now: now,
+            ),
           const SizedBox(height: 4),
           Text(
             [

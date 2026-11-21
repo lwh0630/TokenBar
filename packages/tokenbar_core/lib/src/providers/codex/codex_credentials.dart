@@ -89,6 +89,11 @@ class CodexCredentials {
   }
 }
 
+Future<CodexCredentials?> readCodexCredentials(String home) async {
+  final text = await platform.readTextFile(platform.joinPath(home, 'auth.json'));
+  return text == null ? null : CodexCredentials.parse(text);
+}
+
 /// Resolves the Codex home for an account: explicit dir, `$CODEX_HOME`,
 /// then `~/.codex`.
 String? resolveCodexHome(String? override) {

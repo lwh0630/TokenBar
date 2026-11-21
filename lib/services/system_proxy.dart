@@ -1,56 +1,59 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
-// dart:io's HttpClient only honors http_proxy/https_proxy environment
-// variables (the default `findProxyFromEnvironment`), which a GUI-launched
-// app does not have. Browsers and URLSession follow the macOS system proxy,
-// so read that configuration through a method channel and route dart:io
-// through it. See MainFlutterWindow.swift for the native side.
-
+// dart:io reads environment proxies. Desktop runners expose the current user's
+// manual system proxy through this channel for apps launched from the GUI.
 const _channel = MethodChannel('dev.tokenbar.app/system_proxy');
 const _ttl = Duration(minutes: 10);
+const _proxyEnvironmentKeys = {'http_proxy', 'https_proxy', 'all_proxy'};
 
-Future<http.Client?>? _clientFuture;
+Future<SystemProxyConfig?>? _configFuture;
 DateTime? _cachedAt;
 
-/// A client that routes through the macOS system proxy, or null when none is
-/// configured / usable (the caller then keeps dart:io's default behavior).
-/// Re-checked at most every [_ttl] so toggling the system proxy takes effect
-/// without an app restart.
-Future<http.Client?> systemProxyClient() {
-  final now = DateTime.now();
-  if (_clientFuture == null || now.difference(_cachedAt!) >= _ttl) {
-    _cachedAt = now;
-    _clientFuture = _build();
+/// Each caller owns its client. Only the proxy configuration is cached.
+Future<http.Client> createProviderClient() async {
+  if (kIsWeb || (!Platform.isMacOS && !Platform.isWindows)) return http.Client();
+  if (Platform.environment.entries.any(
+    (entry) => _proxyEnvironmentKeys.contains(entry.key.toLowerCase()) && entry.value.isNotEmpty,
+  )) {
+    return http.Client();
   }
-  return _clientFuture!;
+  final now = DateTime.now();
+  if (_configFuture == null || now.difference(_cachedAt!) >= _ttl) {
+    _cachedAt = now;
+    _configFuture = _readConfig();
+  }
+  final config = await _configFuture;
+  if (config == null) return http.Client();
+  return IOClient(HttpClient()..findProxy = (url) => systemProxyFindProxy(url, config));
 }
 
-Future<http.Client?> _build() async {
-  if (!Platform.isMacOS) return null;
-  // Environment variables already cover the proxy case; keep dart:io's
-  // default lookup in that setup instead of overriding it.
-  const envKeys = ['https_proxy', 'http_proxy', 'all_proxy'];
-  if (envKeys.any((k) => (Platform.environment[k] ?? '').isNotEmpty)) return null;
+Future<SystemProxyConfig?> _readConfig() async {
   try {
-    final raw = await _channel.invokeMethod<Object?>('get');
-    final config = SystemProxyConfig.parse(raw is Map ? raw : null);
-    if (config == null) return null;
-    return IOClient(HttpClient()..findProxy = (url) => systemProxyFindProxy(url, config));
+    final raw = await _channel
+        .invokeMapMethod<Object?, Object?>('get')
+        .timeout(const Duration(seconds: 2));
+    return Platform.isWindows ? SystemProxyConfig.parseWindows(raw) : SystemProxyConfig.parse(raw);
   } catch (_) {
-    // Channel not implemented (tests, older bundle) — dart:io defaults apply.
+    // Tests and older runners may lack the channel.
     return null;
   }
 }
 
-/// Parsed macOS system proxy settings (the `CFNetworkCopySystemProxySettings`
-/// dictionary keys).
+/// Parsed manual HTTP proxy configuration.
 class SystemProxyConfig {
-  const SystemProxyConfig({this.httpProxy, this.httpsProxy, this.exceptions = const []});
+  const SystemProxyConfig({this.httpProxy, this.httpsProxy, this.exceptions = const []})
+    : _windows = false;
+
+  const SystemProxyConfig._windows({this.httpProxy, this.httpsProxy, required this.exceptions})
+    : _windows = true;
+
+  final bool _windows;
 
   /// `host:port`, null when the scheme is disabled or incomplete.
   final String? httpProxy;
@@ -86,15 +89,81 @@ class SystemProxyConfig {
       ],
     );
   }
+
+  /// WinHTTP exposes either a shared proxy or a list such as
+  /// `http=proxy:80;https=proxy:8080`. Only HTTP proxies can carry CONNECT.
+  static SystemProxyConfig? parseWindows(Map<Object?, Object?>? raw) {
+    final proxy = raw?['proxy'];
+    if (proxy is! String || proxy.trim().isEmpty) return null;
+    String? shared;
+    final byScheme = <String, String?>{};
+    for (final entry in proxy.trim().split(RegExp(r'[;\s]+'))) {
+      final separator = entry.indexOf('=');
+      if (separator < 0) {
+        shared ??= _httpProxyAddress(entry);
+      } else {
+        final scheme = entry.substring(0, separator).toLowerCase();
+        if (scheme == 'http' || scheme == 'https') {
+          byScheme[scheme] = _httpProxyAddress(entry.substring(separator + 1));
+        }
+      }
+    }
+    final httpProxy = byScheme.containsKey('http') ? byScheme['http'] : shared;
+    final httpsProxy = byScheme.containsKey('https') ? byScheme['https'] : shared;
+    if (httpProxy == null && httpsProxy == null) return null;
+    final bypass = raw?['bypass'];
+    return SystemProxyConfig._windows(
+      httpProxy: httpProxy,
+      httpsProxy: httpsProxy,
+      exceptions: bypass is String ? bypass.split(RegExp(r'[;\s]+')) : const [],
+    );
+  }
+}
+
+String? _httpProxyAddress(String value) {
+  if (value.isEmpty) return null;
+  try {
+    final uri = Uri.parse(value.contains('://') ? value : 'http://$value');
+    if (uri.scheme != 'http' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        uri.port < 1 ||
+        uri.port > 65535) {
+      return null;
+    }
+    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+    return '$host:${uri.port}';
+  } on FormatException {
+    return null;
+  }
 }
 
 /// dart:io `findProxy` callback: match the URL scheme to the proxy entries
 /// and keep exception-listed hosts direct.
 String systemProxyFindProxy(Uri url, SystemProxyConfig config) {
-  for (final pattern in config.exceptions) {
-    if (exceptionMatches(pattern, url.host)) return 'DIRECT';
+  final host = url.host.toLowerCase();
+  if (config._windows) {
+    if (host == 'localhost' ||
+        host.endsWith('.localhost') ||
+        InternetAddress.tryParse(host)?.isLoopback == true) {
+      return 'DIRECT';
+    }
+    for (final entry in config.exceptions) {
+      final pattern = entry.toLowerCase();
+      if (pattern == '<local>' && !host.contains('.') && !host.contains(':')) return 'DIRECT';
+      if (pattern == host || (pattern.startsWith('*') && host.endsWith(pattern.substring(1)))) {
+        return 'DIRECT';
+      }
+    }
+  } else if (config.exceptions.any((pattern) => exceptionMatches(pattern, host))) {
+    return 'DIRECT';
   }
-  final proxy = url.scheme == 'https' ? (config.httpsProxy ?? config.httpProxy) : config.httpProxy;
+  final proxy = url.scheme == 'https'
+      ? config.httpsProxy ?? (config._windows ? null : config.httpProxy)
+      : config.httpProxy;
   return proxy == null ? 'DIRECT' : 'PROXY $proxy';
 }
 

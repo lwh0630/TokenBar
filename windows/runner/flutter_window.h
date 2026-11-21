@@ -42,6 +42,9 @@ class FlutterWindow : public Win32Window {
   // not offer (rounded corners of the tray panel).
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> window_channel_;
 
+  // The current user's system proxy for Dart provider requests.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> proxy_channel_;
+
   // Registered window message sent by a second launch (see main.cpp).
   UINT activate_message_;
 };

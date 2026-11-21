@@ -87,7 +87,7 @@ Three ways to read a service:
 
 | Service | How it is read | What you see |
 | --- | --- | --- |
-| Codex (ChatGPT) | `~/.codex/auth.json` (run `codex login` first); falls back to `codex app-server` when the token expired | 5-hour, weekly, credits |
+| Codex (ChatGPT) | Official browser sign-in from TokenBar or an existing Codex login. Expired tokens fall back to `codex app-server`. | 5-hour and weekly usage, credits, earned reset credits |
 | Claude (Pro / Max) | Claude Code login (`~/.claude/.credentials.json`, Keychain on macOS) | 5-hour, weekly, Opus / Sonnet weekly, extra usage |
 | Cursor | Cursor desktop login (read-only `state.vscdb`) or a pasted cursor.com cookie | Monthly quota, Auto / API split, on-demand usage |
 | Gemini | Firefox login (auto-read, recommended — the browser rotates tokens, so pasted copies die fast), Gemini CLI login (`~/.gemini/oauth_creds.json`, read-only), or a pasted OAuth token / gemini.google.com cookie | Gemini app 5-hour and weekly limits, or Pro / Flash / Flash Lite quota |
@@ -262,11 +262,17 @@ Runtime libraries: GTK 3, `libsecret` (credential storage, with a running keyrin
 
 ## Getting started
 
+TokenBar uses the current user's manual HTTP proxy settings on Windows and macOS for provider queries. Proxy environment variables take precedence when set.
+
 1. Launch TokenBar. On desktop it detects the services you are already signed in to (Codex, Claude, Cursor) and adds them.
-2. Open **Accounts → Add account** to add anything else: pick a service (the list is searchable), paste the key or cookie, save. Several accounts of the same service are fine (for example, different `CODEX_HOME` directories).
+2. Open **Accounts → Add account** to add a service. Select the service and follow its sign-in or configuration instructions. You can add several accounts for the same service.
 3. The dashboard refreshes every few minutes (configurable). Tap an account for per-window detail and history.
 
-**Tray panel (desktop).** Click the tray icon to open it. It lists each account's two tightest windows with reset countdowns, closes when it loses focus, and **Open TokenBar** brings back the main window. Clicking the tray icon again steps through the states: panel → full window → hidden, so a quick double click opens the full window directly. On Windows 11 the panel has rounded corners. On macOS, Settings → Desktop → *Menu bar only* hides the Dock icon (⌘Q is then unavailable; quit from the tray menu).
+**Codex (desktop).** Choose **Accounts → Add account → Codex → Sign in with ChatGPT**. Complete sign-in in your browser and TokenBar adds the account and fetches its usage. Each sign-in uses its own `CODEX_HOME`. You can also enter the config directory of an existing login. On Windows, TokenBar can use the CLI included with the official Codex desktop app.
+
+Codex cards on the dashboard and the account detail page show the available reset credit count and the expiration of each credit returned by OpenAI. TokenBar reads the inventory in the background during quota refreshes. Select **Use** next to a credit and confirm the account to redeem it. The requests use the selected account's existing ChatGPT login and the [same reset credit routes as the Codex client](https://github.com/openai/codex/blob/1af47ac084303b7bab777394e8b704a21f8e73c1/codex-rs/backend-client/src/client/rate_limit_resets.rs).
+
+**Tray panel (desktop).** Click the tray icon to open it. It lists quota windows with reset countdowns and shows the sign-in email when the provider reports it. Drag the handle on a card to reorder the tray list. TokenBar saves the order on this device. The panel closes when it loses focus. **Open TokenBar** brings back the main window. Clicking the tray icon again steps through the states: panel → full window → hidden, so a quick double click opens the full window directly. On Windows 11 the panel has rounded corners. On macOS, Settings → Desktop → *Menu bar only* hides the Dock icon (⌘Q is then unavailable; quit from the tray menu).
 
 **Usage history.** On an account's page choose 24 hours, 7 days or 30 days. Each bar is the usage added in a time slot, stacked by item:
 

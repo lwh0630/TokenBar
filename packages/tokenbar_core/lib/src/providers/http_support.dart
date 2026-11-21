@@ -39,8 +39,10 @@ Future<HttpResult> sendRequest(
   Map<String, String> headers = const {},
   Object? body,
   Duration timeout = const Duration(seconds: 20),
+  bool followRedirects = true,
 }) async {
   final request = http.Request(method, url)
+    ..followRedirects = followRedirects
     ..headers.addAll({'Accept': 'application/json', ...headers});
   if (body != null) {
     if (body is String) {

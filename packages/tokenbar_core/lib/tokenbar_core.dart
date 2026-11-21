@@ -7,7 +7,7 @@ export 'src/models/model_usage.dart';
 export 'src/models/rate_window.dart';
 export 'src/models/usage_point.dart';
 export 'src/models/usage_snapshot.dart';
-export 'src/platform/platform.dart' show localAccessSupported;
+export 'src/platform/platform.dart' show JsonRpcNotification, JsonRpcSession, localAccessSupported;
 export 'src/providers/claude/claude_credentials.dart'
     show ClaudeCredentials, resolveClaudeConfigDir;
 export 'src/providers/api/account_api_providers.dart'
@@ -15,12 +15,19 @@ export 'src/providers/api/account_api_providers.dart'
 export 'src/providers/api/coding_plan_providers.dart' show sumDecimalStrings;
 export 'src/providers/claude/claude_provider.dart';
 export 'src/providers/claude/claude_usage_parser.dart';
+export 'src/providers/codex/codex_app_server.dart';
 export 'src/providers/codex/codex_credentials.dart'
-    show CodexCredentials, resolveCodexHome, parseChatGptBaseUrl, codexUsageUri;
+    show
+        CodexCredentials,
+        resolveCodexHome,
+        parseChatGptBaseUrl,
+        codexUsageUri,
+        readCodexCredentials;
 export 'src/providers/codex/codex_model_usage.dart'
     show collectCodexFileUsage, listCodexSessionFiles, loadCodexModelUsage;
 export 'src/providers/codex/codex_pricing.dart' show CodexPrice, codexCostUsd, codexPriceFor;
 export 'src/providers/codex/codex_provider.dart';
+export 'src/providers/codex/codex_reset_credits.dart';
 export 'src/providers/codex/codex_session_parser.dart'
     show CodexSessionParser, CodexTokenDelta, CodexTotals;
 export 'src/providers/codex/codex_usage_parser.dart';

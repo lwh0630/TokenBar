@@ -15,6 +15,7 @@ import '../services/notifier.dart';
 import '../services/persistence.dart';
 import '../services/quota_alerts.dart';
 import '../services/system_proxy.dart';
+import 'codex_reset_credits_controller.dart';
 import 'settings.dart';
 
 class AppController extends ChangeNotifier {
@@ -26,12 +27,15 @@ class AppController extends ChangeNotifier {
     required this.homeWidget,
     UsageProvider? Function(String providerId)? providerLookup,
     DateTime Function()? clock,
+    this._codexResetService = const CodexResetService(createClient: createProviderClient),
   }) : _providerLookup = providerLookup ?? ProviderRegistry.instance.byId,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _trayAccountOrder = persistence.loadTrayAccountOrder();
 
   /// Resolves a provider by id (injectable for tests).
   final UsageProvider? Function(String providerId) _providerLookup;
   final DateTime Function() _clock;
+  final CodexResetService _codexResetService;
 
   final Persistence persistence;
   final HistoryStore historyStore;
@@ -148,6 +152,26 @@ class AppController extends ChangeNotifier {
     return result;
   }
 
+  List<String> _trayAccountOrder;
+
+  List<UsageSnapshot> get traySnapshots {
+    final visible = snapshots;
+    if (_trayAccountOrder.isEmpty) return visible;
+    final byId = {for (final snapshot in visible) snapshot.accountId: snapshot};
+    return [for (final id in _trayAccountOrder) ?byId.remove(id), ...byId.values];
+  }
+
+  /// Use account IDs so sorting visible cards also works with filtered and synced accounts.
+  Future<void> moveTrayAccount(String id, String anchorId, {required bool after}) async {
+    final visible = traySnapshots.map((snapshot) => snapshot.accountId).toSet();
+    if (id == anchorId || !visible.contains(id) || !visible.contains(anchorId)) return;
+    final order = {..._trayAccountOrder, ...visible}.toList()..remove(id);
+    order.insert(order.indexOf(anchorId) + (after ? 1 : 0), id);
+    _trayAccountOrder = order;
+    notifyListeners();
+    await persistence.saveTrayAccountOrder(order);
+  }
+
   final Set<String> _remoteIds = {};
   bool _isRemote(UsageSnapshot s) => _remoteIds.contains(s.accountId);
 
@@ -165,8 +189,13 @@ class AppController extends ChangeNotifier {
 
   // ---------------------------------------------------------------- refresh
 
-  Future<void> refresh() async {
-    if (refreshing) return;
+  bool _refreshQueued = false;
+
+  Future<void> refresh({bool queueIfBusy = false}) async {
+    if (refreshing) {
+      if (queueIfBusy) _refreshQueued = true;
+      return;
+    }
     if (demo) {
       lastRefresh = DateTime.now();
       notifyListeners();
@@ -182,6 +211,7 @@ class AppController extends ChangeNotifier {
         fresh.addAll(local);
         anySuccess = local.any((s) => !s.hasError) || local.isEmpty;
       }
+      _refreshCodexResetCredits();
       if (settings.syncMode.usesServer && settings.serverConfigured) {
         anySuccess = await _sync(fresh) || anySuccess;
       } else if (settings.syncMode.usesServer) {
@@ -203,19 +233,23 @@ class AppController extends ChangeNotifier {
       final shown = snapshots;
       unawaited(desktop.update(shown, l10n));
       unawaited(homeWidget.publish(shown, l10n));
+      if (_refreshQueued) {
+        _refreshQueued = false;
+        unawaited(refresh());
+      }
     }
   }
 
   Future<List<UsageSnapshot>> _fetchLocal() async {
     final ctx = FetchContext(
-      client: await systemProxyClient(),
+      client: await createProviderClient(),
       allowClaudeTokenRefresh: settings.allowClaudeRefresh,
       allowCliFallback: settings.allowCliFallback,
       userAgent: 'TokenBar/0.1',
     );
     final origin = settings.deviceName.isEmpty ? null : settings.deviceName;
     final futures = accounts.where((a) => a.enabled).map((a) async {
-      final provider = ProviderRegistry.instance.byId(a.providerId);
+      final provider = _providerLookup(a.providerId);
       if (provider == null) {
         return UsageSnapshot.failure(
           accountId: a.id,
@@ -304,6 +338,46 @@ class AppController extends ChangeNotifier {
     unawaited(persistence.saveNotifyState(_alerts.state));
   }
 
+  // ---------------------------------------------------------------- Codex reset credits
+
+  final _codexResetCredits = <String, CodexResetCreditsController>{};
+
+  CodexResetCreditsController? codexResetCreditsFor(String accountId) =>
+      _codexResetCredits[accountId];
+
+  CodexResetTarget? _codexResetTarget(AccountConfig account) {
+    if (!account.enabled ||
+        account.providerId != 'codex' ||
+        account.sourceType != SourceType.localCli) {
+      return null;
+    }
+    final home = resolveCodexHome(account.homeDir);
+    if (home == null) return null;
+    final email = _snapshots[account.id]?.email?.trim();
+    return (home: home, email: email == null || email.isEmpty ? null : email.toLowerCase());
+  }
+
+  void _refreshCodexResetCredits() {
+    if (!canUseLocalLogins || !settings.syncMode.fetchesLocally) return;
+    final targets = {for (final account in accounts) account.id: ?_codexResetTarget(account)};
+    _codexResetCredits.removeWhere((id, credits) {
+      if (targets[id] == credits.target) return false;
+      credits.dispose();
+      return true;
+    });
+    for (final entry in targets.entries) {
+      final credits = _codexResetCredits.putIfAbsent(
+        entry.key,
+        () => CodexResetCreditsController(
+          target: entry.value,
+          onQuotaChanged: () => refresh(queueIfBusy: true),
+          service: _codexResetService,
+        ),
+      );
+      unawaited(credits.refresh());
+    }
+  }
+
   // ---------------------------------------------------------------- history
 
   Future<List<UsagePoint>> history(String accountId, DateTime since) async {
@@ -368,7 +442,7 @@ class AppController extends ChangeNotifier {
     DateTime now,
   ) async {
     final ctx = FetchContext(
-      client: await systemProxyClient(),
+      client: await createProviderClient(),
       allowCliFallback: false,
       userAgent: 'TokenBar/0.1',
       clock: _clock,
@@ -416,21 +490,25 @@ class AppController extends ChangeNotifier {
     ];
     await persistence.saveAccounts(accounts);
     notifyListeners();
-    unawaited(refresh());
+    unawaited(refresh(queueIfBusy: true));
   }
 
   Future<void> updateAccount(AccountConfig updated) async {
     accounts = [for (final a in accounts) a.id == updated.id ? updated : a];
     _dropModelUsageCache(updated.id);
+    if (_codexResetCredits[updated.id]?.target != _codexResetTarget(updated)) {
+      _codexResetCredits.remove(updated.id)?.dispose();
+    }
     await persistence.saveAccounts(accounts);
     notifyListeners();
-    unawaited(refresh());
+    unawaited(refresh(queueIfBusy: true));
   }
 
   Future<void> removeAccount(String id) async {
     accounts = accounts.where((a) => a.id != id).toList();
     _snapshots.remove(id);
     _dropModelUsageCache(id);
+    _codexResetCredits.remove(id)?.dispose();
     await persistence.saveAccounts(accounts);
     await persistence.deleteAccountSecret(id);
     await historyStore.removeAccount(id);
@@ -506,6 +584,10 @@ class AppController extends ChangeNotifier {
   void dispose() {
     _refreshTimer?.cancel();
     _clockTimer?.cancel();
+    for (final credits in _codexResetCredits.values) {
+      credits.dispose();
+    }
+    _codexResetCredits.clear();
     now.dispose();
     super.dispose();
   }

@@ -4,10 +4,34 @@
 #include <flutter/standard_method_codec.h>
 
 #include <dwmapi.h>
+#include <winhttp.h>
 
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "utils.h"
+
+namespace {
+
+// Read the interactive user's manual proxy. WinHTTP owns the returned strings
+// until the caller frees them with GlobalFree.
+flutter::EncodableValue SystemProxySettings() {
+  WINHTTP_CURRENT_USER_IE_PROXY_CONFIG config = {};
+  if (!::WinHttpGetIEProxyConfigForCurrentUser(&config)) {
+    return flutter::EncodableValue();
+  }
+  const std::string proxy = Utf8FromUtf16(config.lpszProxy);
+  const std::string bypass = Utf8FromUtf16(config.lpszProxyBypass);
+  ::GlobalFree(config.lpszProxy);
+  ::GlobalFree(config.lpszProxyBypass);
+  ::GlobalFree(config.lpszAutoConfigUrl);
+  return flutter::EncodableValue(flutter::EncodableMap{
+      {flutter::EncodableValue("proxy"), flutter::EncodableValue(proxy)},
+      {flutter::EncodableValue("bypass"), flutter::EncodableValue(bypass)},
+  });
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project),
@@ -60,6 +84,19 @@ bool FlutterWindow::OnCreate() {
         const HRESULT hr = ::DwmSetWindowAttribute(hwnd, 33, &preference, sizeof(preference));
         result->Success(flutter::EncodableValue(SUCCEEDED(hr) && *round));
       });
+  proxy_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "dev.tokenbar.app/system_proxy",
+          &flutter::StandardMethodCodec::GetInstance());
+  proxy_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "get") {
+          result->Success(SystemProxySettings());
+        } else {
+          result->NotImplemented();
+        }
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -103,6 +140,7 @@ void FlutterWindow::HandleActivateRequest() {
 void FlutterWindow::OnDestroy() {
   instance_channel_ = nullptr;
   window_channel_ = nullptr;
+  proxy_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

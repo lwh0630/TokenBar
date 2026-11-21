@@ -253,14 +253,19 @@ class _IoJsonRpcSession implements JsonRpcSession {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(_onLine, onDone: _onDone);
-    _process.stderr.drain<void>();
+    unawaited(_process.stderr.drain<void>());
   }
 
   final Process _process;
   late final StreamSubscription<String> _stdoutSub;
   final Map<int, Completer<Object?>> _pending = {};
+  final _notifications = StreamController<JsonRpcNotification>.broadcast();
   int _nextId = 1;
   bool _closed = false;
+  bool _outputClosed = false;
+
+  @override
+  Stream<JsonRpcNotification> get notifications => _notifications.stream;
 
   void _onLine(String line) {
     if (line.trim().isEmpty) return;
@@ -272,8 +277,15 @@ class _IoJsonRpcSession implements JsonRpcSession {
     }
     if (message is! Map) return;
     final id = message['id'];
-    if (id is! num) return;
-    final completer = _pending.remove(id.toInt());
+    if (id == null) {
+      final method = message['method'];
+      if (method is String && !_outputClosed) {
+        _notifications.add((method: method, params: message['params']));
+      }
+      return;
+    }
+    if (id is! int) return;
+    final completer = _pending.remove(id);
     if (completer == null) return;
     final error = message['error'];
     if (error is Map) {
@@ -284,14 +296,17 @@ class _IoJsonRpcSession implements JsonRpcSession {
   }
 
   void _onDone() {
+    if (_outputClosed) return;
+    _outputClosed = true;
     for (final completer in _pending.values) {
       completer.completeError(JsonRpcException('process closed stdout'));
     }
     _pending.clear();
+    unawaited(_notifications.close());
   }
 
   void _send(Map<String, Object?> payload) {
-    if (_closed) throw JsonRpcException('session closed');
+    if (_closed || _outputClosed) throw JsonRpcException('session closed');
     _process.stdin.writeln(jsonEncode(payload));
   }
 
@@ -304,7 +319,12 @@ class _IoJsonRpcSession implements JsonRpcSession {
     final id = _nextId++;
     final completer = Completer<Object?>();
     _pending[id] = completer;
-    _send({'id': id, 'method': method, 'params': params ?? <String, Object?>{}});
+    try {
+      _send({'id': id, 'method': method, 'params': params ?? <String, Object?>{}});
+    } catch (_) {
+      _pending.remove(id);
+      rethrow;
+    }
     return completer.future.timeout(
       timeout,
       onTimeout: () {
@@ -318,15 +338,24 @@ class _IoJsonRpcSession implements JsonRpcSession {
   void notify(String method, {Object? params}) =>
       _send({'method': method, 'params': params ?? <String, Object?>{}});
 
+  Future<void>? _closing;
+
   @override
-  Future<void> close() async {
-    if (_closed) return;
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     _closed = true;
+    _onDone();
     try {
-      await _process.stdin.close();
+      await _process.stdin.close().timeout(const Duration(seconds: 2));
     } catch (_) {}
-    final exited = await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
-    if (exited == -1) _process.kill(ProcessSignal.sigkill);
-    await _stdoutSub.cancel();
+    try {
+      await _process.exitCode.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      _process.kill(ProcessSignal.sigkill);
+      await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    } finally {
+      await _stdoutSub.cancel();
+    }
   }
 }

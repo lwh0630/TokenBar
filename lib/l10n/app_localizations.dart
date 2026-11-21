@@ -1509,6 +1509,186 @@ abstract class AppLocalizations {
   /// **'配置目录（可选）'**
   String get configDirField;
 
+  /// No description provided for @codexSignIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录 ChatGPT 账号'**
+  String get codexSignIn;
+
+  /// No description provided for @codexSignInHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接登录可添加新的 Codex 账号。已有 Codex 登录也可通过下方的配置目录导入。'**
+  String get codexSignInHint;
+
+  /// No description provided for @codexSignInPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备 Codex 登录…'**
+  String get codexSignInPreparing;
+
+  /// No description provided for @codexSignInWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在浏览器选择要添加的 ChatGPT 账号。若浏览器已登录主号，可以复制链接，用另一个浏览器资料或无痕窗口打开。'**
+  String get codexSignInWaiting;
+
+  /// No description provided for @codexSignInBrowserFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能打开浏览器。请复制链接后手动打开。'**
+  String get codexSignInBrowserFailed;
+
+  /// No description provided for @codexSignInCopyLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制登录链接'**
+  String get codexSignInCopyLink;
+
+  /// No description provided for @codexSignInLinkCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制链接'**
+  String get codexSignInLinkCopied;
+
+  /// No description provided for @codexSignInTimedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录链接已超时。关闭此窗口后重新发起登录。'**
+  String get codexSignInTimedOut;
+
+  /// No description provided for @codexSignInFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Codex 登录未完成。请在浏览器确认所选账号后重试。'**
+  String get codexSignInFailed;
+
+  /// No description provided for @codexCliMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'找不到 Codex 程序。请安装或更新官方 Codex 桌面版或命令行工具。'**
+  String get codexCliMissing;
+
+  /// No description provided for @codexResetCredits.
+  ///
+  /// In zh, this message translates to:
+  /// **'Codex 重置券'**
+  String get codexResetCredits;
+
+  /// No description provided for @codexResetCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用 {count} 张'**
+  String codexResetCount(int count);
+
+  /// No description provided for @codexResetExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 到期'**
+  String codexResetExpiry(String date);
+
+  /// No description provided for @codexResetNoExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'无到期时间'**
+  String get codexResetNoExpiry;
+
+  /// No description provided for @codexResetExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'已过期'**
+  String get codexResetExpired;
+
+  /// No description provided for @codexResetDetailsMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenAI 暂未返回全部重置券的详情。'**
+  String get codexResetDetailsMissing;
+
+  /// No description provided for @codexResetUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法使用重置券，请刷新额度后重试。'**
+  String get codexResetUnavailable;
+
+  /// No description provided for @codexResetAccountChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号登录已变化。请刷新额度并核对账号后再使用。'**
+  String get codexResetAccountChanged;
+
+  /// No description provided for @codexResetSignedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'此功能需要登录 ChatGPT 账号。'**
+  String get codexResetSignedOut;
+
+  /// No description provided for @codexResetCreditUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张重置券已不可用。'**
+  String get codexResetCreditUnavailable;
+
+  /// No description provided for @codexResetUsageSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 ChatGPT 用量设置'**
+  String get codexResetUsageSettings;
+
+  /// No description provided for @codexResetBrowserFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能打开浏览器。可在 ChatGPT 设置中打开用量页面。'**
+  String get codexResetBrowserFailed;
+
+  /// No description provided for @codexResetUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用'**
+  String get codexResetUse;
+
+  /// No description provided for @codexResetUseTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用这张重置券？'**
+  String get codexResetUseTitle;
+
+  /// No description provided for @codexResetUseBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'为 {account} 使用 1 张重置券。符合条件的 Codex 额度将恢复。'**
+  String codexResetUseBody(String account);
+
+  /// No description provided for @codexResetUsing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在使用重置券…'**
+  String get codexResetUsing;
+
+  /// No description provided for @codexResetUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置券已使用。'**
+  String get codexResetUsed;
+
+  /// No description provided for @codexResetNothingToReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前额度无需重置，重置券仍可用。'**
+  String get codexResetNothingToReset;
+
+  /// No description provided for @codexResetUncertain.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法确认重置结果。你可以重试原来的请求。'**
+  String get codexResetUncertain;
+
+  /// No description provided for @codexResetRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试使用同一张券'**
+  String get codexResetRetry;
+
   /// No description provided for @homeDirHelper.
   ///
   /// In zh, this message translates to:

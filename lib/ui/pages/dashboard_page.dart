@@ -96,6 +96,7 @@ class DashboardPage extends StatelessWidget {
                                 child: AccountCard(
                                   snapshot: s,
                                   now: now,
+                                  resetCredits: c.codexResetCreditsFor(s.accountId),
                                   onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => AccountDetailPage(accountId: s.accountId),
