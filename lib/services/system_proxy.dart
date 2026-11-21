@@ -6,8 +6,9 @@ import 'package:flutter/services.dart' show MethodChannel;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
-// dart:io reads environment proxies. Desktop runners expose the current user's
-// manual system proxy through this channel for apps launched from the GUI.
+// dart:io reads environment proxies. Windows and macOS runners expose the current
+// user's manual system proxy through this channel for apps launched from the GUI;
+// Linux reads the GNOME settings (`gsettings`), which most desktops share.
 const _channel = MethodChannel('dev.tokenbar.app/system_proxy');
 const _ttl = Duration(minutes: 10);
 const _proxyEnvironmentKeys = {'http_proxy', 'https_proxy', 'all_proxy'};
@@ -17,7 +18,9 @@ DateTime? _cachedAt;
 
 /// Each caller owns its client. Only the proxy configuration is cached.
 Future<http.Client> createProviderClient() async {
-  if (kIsWeb || (!Platform.isMacOS && !Platform.isWindows)) return http.Client();
+  if (kIsWeb || !(Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+    return http.Client();
+  }
   if (Platform.environment.entries.any(
     (entry) => _proxyEnvironmentKeys.contains(entry.key.toLowerCase()) && entry.value.isNotEmpty,
   )) {
@@ -33,8 +36,19 @@ Future<http.Client> createProviderClient() async {
   return IOClient(HttpClient()..findProxy = (url) => systemProxyFindProxy(url, config));
 }
 
+Future<SystemProxyConfig?> _readLinuxConfig() async {
+  // Widget tests run under fake async, where a real process never completes.
+  if (Platform.environment.containsKey('FLUTTER_TEST')) return null;
+  final result = await Process.run('gsettings', [
+    'list-recursively',
+    'org.gnome.system.proxy',
+  ]).timeout(const Duration(seconds: 2));
+  return result.exitCode == 0 ? SystemProxyConfig.parseGsettings(result.stdout as String) : null;
+}
+
 Future<SystemProxyConfig?> _readConfig() async {
   try {
+    if (Platform.isLinux) return await _readLinuxConfig();
     final raw = await _channel
         .invokeMapMethod<Object?, Object?>('get')
         .timeout(const Duration(seconds: 2));
@@ -48,12 +62,12 @@ Future<SystemProxyConfig?> _readConfig() async {
 /// Parsed manual HTTP proxy configuration.
 class SystemProxyConfig {
   const SystemProxyConfig({this.httpProxy, this.httpsProxy, this.exceptions = const []})
-    : _windows = false;
+    : _strict = false;
 
-  const SystemProxyConfig._windows({this.httpProxy, this.httpsProxy, required this.exceptions})
-    : _windows = true;
+  const SystemProxyConfig._strict({this.httpProxy, this.httpsProxy, required this.exceptions})
+    : _strict = true;
 
-  final bool _windows;
+  final bool _strict;
 
   /// `host:port`, null when the scheme is disabled or incomplete.
   final String? httpProxy;
@@ -90,6 +104,32 @@ class SystemProxyConfig {
     );
   }
 
+  /// `gsettings list-recursively org.gnome.system.proxy` output. Only the manual
+  /// mode is used (PAC needs a script engine, SOCKS cannot carry CONNECT).
+  static SystemProxyConfig? parseGsettings(String text) {
+    final values = <String, String>{};
+    for (final line in text.split('\n')) {
+      final match = RegExp(r'^(\S+)\s+(\S+)\s+(.*)$').firstMatch(line.trim());
+      if (match != null) values['${match[1]} ${match[2]}'] = match[3]!;
+    }
+    String value(String key) => (values[key] ?? '').replaceAll("'", '').trim();
+    if (value('org.gnome.system.proxy mode') != 'manual') return null;
+    String? entry(String scheme) {
+      final schema = 'org.gnome.system.proxy.$scheme';
+      return _httpProxyAddress('${value('$schema host')}:${value('$schema port')}');
+    }
+
+    final httpProxy = entry('http');
+    final httpsProxy = entry('https');
+    if (httpProxy == null && httpsProxy == null) return null;
+    final ignored = values['org.gnome.system.proxy ignore-hosts'] ?? '';
+    return SystemProxyConfig._strict(
+      httpProxy: httpProxy,
+      httpsProxy: httpsProxy,
+      exceptions: [for (final m in RegExp(r"'([^']*)'").allMatches(ignored)) m[1]!],
+    );
+  }
+
   /// WinHTTP exposes either a shared proxy or a list such as
   /// `http=proxy:80;https=proxy:8080`. Only HTTP proxies can carry CONNECT.
   static SystemProxyConfig? parseWindows(Map<Object?, Object?>? raw) {
@@ -112,7 +152,7 @@ class SystemProxyConfig {
     final httpsProxy = byScheme.containsKey('https') ? byScheme['https'] : shared;
     if (httpProxy == null && httpsProxy == null) return null;
     final bypass = raw?['bypass'];
-    return SystemProxyConfig._windows(
+    return SystemProxyConfig._strict(
       httpProxy: httpProxy,
       httpsProxy: httpsProxy,
       exceptions: bypass is String ? bypass.split(RegExp(r'[;\s]+')) : const [],
@@ -145,12 +185,12 @@ String? _httpProxyAddress(String value) {
 /// and keep exception-listed hosts direct.
 String systemProxyFindProxy(Uri url, SystemProxyConfig config) {
   final host = url.host.toLowerCase();
-  if (config._windows) {
-    if (host == 'localhost' ||
-        host.endsWith('.localhost') ||
-        InternetAddress.tryParse(host)?.isLoopback == true) {
-      return 'DIRECT';
-    }
+  if (host == 'localhost' ||
+      host.endsWith('.localhost') ||
+      InternetAddress.tryParse(host)?.isLoopback == true) {
+    return 'DIRECT';
+  }
+  if (config._strict) {
     for (final entry in config.exceptions) {
       final pattern = entry.toLowerCase();
       if (pattern == '<local>' && !host.contains('.') && !host.contains(':')) return 'DIRECT';
@@ -162,7 +202,7 @@ String systemProxyFindProxy(Uri url, SystemProxyConfig config) {
     return 'DIRECT';
   }
   final proxy = url.scheme == 'https'
-      ? config.httpsProxy ?? (config._windows ? null : config.httpProxy)
+      ? config.httpsProxy ?? (config._strict ? null : config.httpProxy)
       : config.httpProxy;
   return proxy == null ? 'DIRECT' : 'PROXY $proxy';
 }

@@ -8,8 +8,40 @@ class CodexCliNotFound implements Exception {
   const CodexCliNotFound();
 }
 
-/// The Windows desktop app includes the official CLI, even without a PATH entry.
+String? _cachedCodexExecutable;
+
+/// PATH first (cached by the platform layer), then the places a GUI-launched app
+/// cannot see through its own PATH: the Windows desktop app bundle and the usual
+/// user-level install directories on macOS / Linux. A hit is remembered.
 Future<String?> _codexExecutable() async {
+  final cached = _cachedCodexExecutable;
+  if (cached != null && await platform.fileModified(cached) != null) return cached;
+  final found =
+      await platform.findExecutable('codex') ??
+      (platform.isWindows ? await _windowsBundledCodex() : await _unixInstalledCodex());
+  return _cachedCodexExecutable = found;
+}
+
+Future<String?> _unixInstalledCodex() async {
+  final home = platform.envVar('HOME');
+  for (final path in [
+    '/opt/homebrew/bin/codex',
+    '/usr/local/bin/codex',
+    '/usr/bin/codex',
+    if (home != null) ...[
+      platform.joinPath(home, '.local/bin/codex'),
+      platform.joinPath(home, '.npm-global/bin/codex'),
+      platform.joinPath(home, '.bun/bin/codex'),
+      platform.joinPath(home, '.volta/bin/codex'),
+    ],
+  ]) {
+    if (await platform.fileModified(path) != null) return path;
+  }
+  return null;
+}
+
+/// The Windows desktop app includes the official CLI, even without a PATH entry.
+Future<String?> _windowsBundledCodex() async {
   if (platform.isWindows) {
     final systemRoot = platform.envVar('SystemRoot');
     if (systemRoot != null) {
@@ -45,7 +77,7 @@ if ($locations) {
       }
     }
   }
-  return platform.findExecutable('codex');
+  return null;
 }
 
 /// Opens the official CLI protocol in one account's home. Interactive account

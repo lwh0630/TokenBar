@@ -262,7 +262,7 @@ Runtime libraries: GTK 3, `libsecret` (credential storage, with a running keyrin
 
 ## Getting started
 
-TokenBar uses the current user's manual HTTP proxy settings on Windows and macOS for provider queries. Proxy environment variables take precedence when set.
+TokenBar uses the current user's manual HTTP proxy settings on Windows, macOS and Linux (GNOME `gsettings`) for provider queries. Proxy environment variables take precedence when set.
 
 1. Launch TokenBar. On desktop it detects the services you are already signed in to (Codex, Claude, Cursor) and adds them.
 2. Open **Accounts → Add account** to add a service. Select the service and follow its sign-in or configuration instructions. You can add several accounts for the same service.

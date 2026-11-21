@@ -78,6 +78,55 @@ void main() {
     });
   });
 
+  group('SystemProxyConfig.parseGsettings', () {
+    const manual = '''
+org.gnome.system.proxy mode 'manual'
+org.gnome.system.proxy use-same-proxy true
+org.gnome.system.proxy ignore-hosts ['localhost', '*.corp.test', '10.1.1.9']
+org.gnome.system.proxy.http host '127.0.0.1'
+org.gnome.system.proxy.http port 7890
+org.gnome.system.proxy.https host '127.0.0.1'
+org.gnome.system.proxy.https port 7891
+org.gnome.system.proxy.socks host 'socks.local'
+org.gnome.system.proxy.socks port 1080
+''';
+
+    test('reads the manual proxy and bypass list', () {
+      final config = SystemProxyConfig.parseGsettings(manual)!;
+      expect(systemProxyFindProxy(Uri.http('example.com'), config), 'PROXY 127.0.0.1:7890');
+      expect(systemProxyFindProxy(Uri.https('chatgpt.com'), config), 'PROXY 127.0.0.1:7891');
+      expect(systemProxyFindProxy(Uri.https('git.corp.test'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('10.1.1.9'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('localhost:8080'), config), 'DIRECT');
+    });
+
+    test('automatic, disabled and socks-only setups are unusable', () {
+      expect(SystemProxyConfig.parseGsettings(manual.replaceAll("'manual'", "'auto'")), isNull);
+      expect(SystemProxyConfig.parseGsettings(manual.replaceAll("'manual'", "'none'")), isNull);
+      expect(
+        SystemProxyConfig.parseGsettings(
+          "org.gnome.system.proxy mode 'manual'\n"
+          "org.gnome.system.proxy.socks host 'socks.local'\n"
+          'org.gnome.system.proxy.socks port 1080\n',
+        ),
+        isNull,
+      );
+      expect(SystemProxyConfig.parseGsettings(''), isNull);
+    });
+
+    test('http-only setups keep https direct', () {
+      final config = SystemProxyConfig.parseGsettings(
+        "org.gnome.system.proxy mode 'manual'\n"
+        "org.gnome.system.proxy.http host 'proxy.lan'\n"
+        'org.gnome.system.proxy.http port 3128\n'
+        "org.gnome.system.proxy.https host ''\n"
+        'org.gnome.system.proxy.https port 0\n',
+      )!;
+      expect(systemProxyFindProxy(Uri.https('chatgpt.com'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('example.com'), config), 'PROXY proxy.lan:3128');
+    });
+  });
+
   group('systemProxyFindProxy', () {
     final config = SystemProxyConfig(
       httpProxy: '10.0.0.2:7890',

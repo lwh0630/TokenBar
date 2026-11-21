@@ -260,7 +260,7 @@ xattr -dr com.apple.quarantine /Applications/TokenBar.app
 
 ## 开始使用
 
-Windows 和 macOS 上，TokenBar 查询服务商时会读取当前用户手动配置的 HTTP 系统代理。有代理环境变量时优先使用环境变量。
+Windows、macOS 和 Linux（GNOME `gsettings`）上，TokenBar 查询服务商时会读取当前用户手动配置的 HTTP 系统代理。有代理环境变量时优先使用环境变量。
 
 1. 启动 TokenBar。桌面端会自动检测你已登录的服务（Codex、Claude、Cursor）并添加。
 2. 在**账户 → 添加账户**中选择服务，按提示登录或填写配置。同一服务可以添加多个账户。
