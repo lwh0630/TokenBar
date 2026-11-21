@@ -24,8 +24,12 @@ class LocalFileEntry {
   final int? size;
 }
 
+typedef JsonRpcNotification = ({String method, Object? params});
+
 /// A line-delimited JSON-RPC session over a child process' stdio.
 abstract class JsonRpcSession {
+  Stream<JsonRpcNotification> get notifications;
+
   /// Sends a request and waits for the response with the same id.
   /// Returns the `result` object; throws [JsonRpcException] on `error`.
   Future<Object?> request(String method, {Object? params, Duration timeout});

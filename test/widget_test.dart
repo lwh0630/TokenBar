@@ -259,6 +259,23 @@ void main() {
     }
   });
 
+  testWidgets('desktop Codex editor offers browser sign-in and an existing login', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      await openEditor(tester);
+      await tester.tap(find.byKey(const ValueKey('provider-picker')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'codex');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Codex').last);
+      await tester.pumpAndSettle();
+      expect(find.text('登录 ChatGPT 账号'), findsOneWidget);
+      expect(find.text(l.configDirField), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('phone editor only offers providers usable without a desktop login', (tester) async {
     await openEditor(tester);
     expect(find.text('本机 Cursor 登录'), findsNothing);

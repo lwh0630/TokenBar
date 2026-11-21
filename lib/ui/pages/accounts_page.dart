@@ -5,12 +5,14 @@ import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
 import '../../app/design/glass.dart';
+import '../../app/design/tokens.dart';
 import '../../demo/demo_data.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
 import '../../state/settings.dart';
 import '../format.dart';
 import '../widgets/provider_badge.dart';
+import 'codex_sign_in_dialog.dart';
 
 class AccountsPage extends StatelessWidget {
   const AccountsPage({super.key});
@@ -251,6 +253,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   final Map<String, TextEditingController> _fields = {};
   final Map<String, String> _choices = {};
   late Map<String, String> _savedSecrets;
+  bool _signingIn = false;
 
   UsageProvider get _provider => ProviderRegistry.instance.byId(_providerId)!;
   List<SourceType> get _sources => _sourcesOf(_provider);
@@ -317,6 +320,28 @@ class _AccountEditorState extends State<_AccountEditor> {
 
   void _toast(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+  Future<void> _signIn() async {
+    final controller = context.read<AppController>();
+    final l = AppLocalizations.of(context);
+    final label = _label.text.trim();
+    final providerName = _provider.displayName;
+    setState(() => _signingIn = true);
+    try {
+      final login = await showCodexSignIn(context);
+      if (login == null) return;
+      await controller.addAccount(
+        providerId: 'codex',
+        label: label.isEmpty || label == providerName ? login.email ?? providerName : label,
+        homeDir: login.home,
+      );
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) _toast(l.codexSignInFailed);
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
 
   Future<void> _save() async {
     final l = AppLocalizations.of(context);
@@ -393,6 +418,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final editing = widget.existing != null;
+    final offerCodexSignIn = !editing && canUseLocalLogins && _providerId == 'codex' && !kDemoMode;
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return GlassDialog(
       width: 520,
@@ -426,7 +452,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(_provider.setupHint, style: muted),
+              Text(offerCodexSignIn ? l.codexSignInHint : _provider.setupHint, style: muted),
               const SizedBox(height: 12),
               TextField(
                 controller: _label,
@@ -445,6 +471,15 @@ class _AccountEditorState extends State<_AccountEditor> {
               ],
               const SizedBox(height: 12),
               if (_source == SourceType.localCli) ...[
+                if (offerCodexSignIn) ...[
+                  GlassButton(
+                    kind: GlassButtonKind.secondary,
+                    onPressed: _signingIn ? null : _signIn,
+                    icon: Icons.login,
+                    label: l.codexSignIn,
+                  ),
+                  const SizedBox(height: Sp.x3),
+                ],
                 if (_supportsHomeDir)
                   TextField(
                     controller: _home,
@@ -470,7 +505,11 @@ class _AccountEditorState extends State<_AccountEditor> {
           onPressed: () => Navigator.pop(context),
           label: l.cancel,
         ),
-        GlassButton(kind: GlassButtonKind.primary, onPressed: _save, label: l.save),
+        GlassButton(
+          kind: GlassButtonKind.primary,
+          onPressed: _signingIn ? null : _save,
+          label: l.save,
+        ),
       ],
     );
   }

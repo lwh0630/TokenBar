@@ -64,6 +64,7 @@ class Persistence {
   static const _accountsKey = 'tokenbar.accounts';
   static const _snapshotsKey = 'tokenbar.snapshots';
   static const _notifyStateKey = 'tokenbar.notifyState';
+  static const _trayAccountOrderKey = 'tokenbar.trayAccountOrder';
   static const _serverTokenKey = 'tokenbar.serverToken';
   static String _secretKey(String accountId) => 'tokenbar.secret.$accountId';
 
@@ -157,6 +158,11 @@ class Persistence {
   }
 
   Future<void> deleteAccountSecret(String accountId) => _writeSecret(_secretKey(accountId), null);
+
+  List<String> loadTrayAccountOrder() => _prefs.getStringList(_trayAccountOrderKey) ?? const [];
+
+  Future<void> saveTrayAccountOrder(List<String> order) =>
+      _prefs.setStringList(_trayAccountOrderKey, order);
 
   /// Last snapshots, so the UI shows data instantly on launch.
   List<UsageSnapshot> loadCachedSnapshots() {

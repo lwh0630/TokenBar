@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tokenbar_core/tokenbar_core.dart';
 
@@ -30,6 +33,7 @@ class TrayPanel extends StatelessWidget {
       final windows = s.windows.take(2).length;
       final credits = s.credits.take(windows == 0 ? 2 : 1).length;
       var h = 50.0 + windows * 59 + credits * 22;
+      if (_trayLoginEmail(s) != null) h += 16;
       if (s.hasError) h += (windows == 0 && credits == 0) ? 42 : 22;
       tiles += h;
     }
@@ -42,7 +46,18 @@ class TrayPanel extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final c = context.watch<AppController>();
     final theme = Theme.of(context);
-    final snapshots = c.snapshots;
+    final snapshots = c.traySnapshots;
+
+    void move(int oldIndex, int newIndex) {
+      if (oldIndex == newIndex) return;
+      unawaited(
+        c.moveTrayAccount(
+          snapshots[oldIndex].accountId,
+          snapshots[newIndex].accountId,
+          after: oldIndex < newIndex,
+        ),
+      );
+    }
 
     // On Windows 11 the window itself has rounded corners (set natively); draw the
     // same radius so the outline follows them instead of being cut off at the corners.
@@ -85,11 +100,32 @@ class TrayPanel extends StatelessWidget {
                     )
                   : ValueListenableBuilder(
                       valueListenable: c.now,
-                      builder: (context, now, _) => ListView.separated(
+                      builder: (context, now, _) => ReorderableListView.builder(
                         padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                         itemCount: snapshots.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _AccountTile(snapshot: snapshots[i], now: now),
+                        buildDefaultDragHandles: false,
+                        onReorderItem: move,
+                        proxyDecorator: (child, _, _) => child,
+                        itemBuilder: (_, i) {
+                          final snapshot = snapshots[i];
+                          return Padding(
+                            key: ValueKey(snapshot.accountId),
+                            padding: EdgeInsets.only(bottom: i + 1 < snapshots.length ? 10 : 0),
+                            child: _AccountTile(
+                              snapshot: snapshot,
+                              now: now,
+                              reorderHandle: snapshots.length == 1
+                                  ? null
+                                  : _ReorderHandle(
+                                      index: i,
+                                      onUp: i > 0 ? () => move(i, i - 1) : null,
+                                      onDown: i + 1 < snapshots.length
+                                          ? () => move(i, i + 1)
+                                          : null,
+                                    ),
+                            ),
+                          );
+                        },
                       ),
                     ),
             ),
@@ -161,11 +197,22 @@ class _Header extends StatelessWidget {
   }
 }
 
+String? _trayLoginEmail(UsageSnapshot snapshot) {
+  final email = snapshot.email?.trim();
+  if (email == null ||
+      email.isEmpty ||
+      email.toLowerCase() == snapshot.accountLabel?.trim().toLowerCase()) {
+    return null;
+  }
+  return email;
+}
+
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({required this.snapshot, required this.now});
+  const _AccountTile({required this.snapshot, required this.now, this.reorderHandle});
 
   final UsageSnapshot snapshot;
   final DateTime now;
+  final Widget? reorderHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +220,7 @@ class _AccountTile extends StatelessWidget {
     final theme = Theme.of(context);
     final s = snapshot;
     final provider = ProviderRegistry.instance.byId(s.providerId);
+    final loginEmail = _trayLoginEmail(s);
     final muted = theme.colorScheme.onSurfaceVariant;
     final windows = s.windows.take(2).toList();
 
@@ -188,14 +236,34 @@ class _AccountTile extends StatelessWidget {
               ProviderBadge(providerId: s.providerId, size: 26),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  s.accountLabel ?? provider?.displayName ?? s.providerId,
-                  style: theme.textTheme.titleSmall,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s.accountLabel ?? provider?.displayName ?? s.providerId,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (loginEmail != null)
+                      Tooltip(
+                        message: loginEmail,
+                        excludeFromSemantics: true,
+                        child: Text(
+                          loginEmail,
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (s.plan != null)
+              if (s.plan != null) ...[
+                const SizedBox(width: Sp.x2),
                 Text(planLabel(s.plan), style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+              ],
+              if (reorderHandle case final handle?) ...[const SizedBox(width: Sp.x1), handle],
             ],
           ),
           if (s.hasError && windows.isEmpty && s.credits.isEmpty)
@@ -240,6 +308,51 @@ class _AccountTile extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReorderHandle extends StatelessWidget {
+  const _ReorderHandle({required this.index, this.onUp, this.onDown});
+
+  final int index;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.dragToReorder,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.arrowUp): ?onUp,
+          const SingleActivator(LogicalKeyboardKey.arrowDown): ?onDown,
+        },
+        child: Focus(
+          child: Builder(
+            builder: (context) {
+              final colors = Theme.of(context).colorScheme;
+              final focused = Focus.of(context).hasPrimaryFocus;
+              return ReorderableDragStartListener(
+                index: index,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: SizedBox(
+                    width: Sp.x8,
+                    height: Sp.x6 + Sp.x1,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: Sp.x5,
+                      color: focused ? colors.primary : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

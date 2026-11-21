@@ -85,7 +85,7 @@
 
 | 服务 | 读取方式 | 额度 |
 | --- | --- | --- |
-| Codex（ChatGPT 订阅） | 本机 `~/.codex/auth.json`（先运行 `codex login`）；令牌过期时可走 `codex app-server` | 5 小时、每周、Credits |
+| Codex（ChatGPT 订阅） | 在 TokenBar 中发起官方浏览器登录，或复用已有 Codex 登录。令牌过期时可通过 `codex app-server` 查询。 | 5 小时和每周用量、Credits、重置券 |
 | Claude（Pro / Max） | 本机 Claude Code 登录（`~/.claude/.credentials.json`，macOS 为钥匙串） | 5 小时、每周、Opus / Sonnet 每周、额外用量 |
 | Cursor | 本机 Cursor 桌面端登录（只读 `state.vscdb`），或粘贴 cursor.com 的 Cookie | 本月额度、Auto / API 分项、按需用量 |
 | Gemini | Firefox 登录（自动读取，推荐——浏览器会轮换令牌，粘贴的副本很快失效）、本机 Gemini CLI 登录（`~/.gemini/oauth_creds.json`，只读），或粘贴 OAuth 令牌 / gemini.google.com 的 Cookie | Gemini 应用 5 小时与每周限额，或 Pro / Flash / Flash Lite 额度 |
@@ -260,11 +260,17 @@ xattr -dr com.apple.quarantine /Applications/TokenBar.app
 
 ## 开始使用
 
+Windows 和 macOS 上，TokenBar 查询服务商时会读取当前用户手动配置的 HTTP 系统代理。有代理环境变量时优先使用环境变量。
+
 1. 启动 TokenBar。桌面端会自动检测你已登录的服务（Codex、Claude、Cursor）并添加。
-2. 在**账户 → 添加账户**中添加其他服务：选择服务（支持搜索），粘贴 Key 或 Cookie，保存。同一服务可以有多个账户（例如不同的 `CODEX_HOME` 目录）。
+2. 在**账户 → 添加账户**中选择服务，按提示登录或填写配置。同一服务可以添加多个账户。
 3. 总览页每隔几分钟自动刷新（可调整）。点账户可查看各窗口详情和历史。
 
-**托盘小面板（桌面端）**：点击托盘图标弹出，列出每个账户最紧张的两个额度和重置倒计时，失去焦点自动收起；点**打开 TokenBar**回到主窗口。连续点击托盘图标会依次切换：小面板 → 完整窗口 → 隐藏，所以快速双击会直接打开完整窗口。Windows 11 上小面板带圆角。macOS 上可在 设置 → 桌面 中开启**仅在菜单栏显示**来隐藏 Dock 图标（此时 ⌘Q 不可用，请从托盘菜单退出）。
+**Codex（桌面端）**。在**账户 → 添加账户 → Codex**中选择**登录 ChatGPT 账号**。在浏览器完成登录后，TokenBar 会添加账号并查询用量。每次登录使用独立的 `CODEX_HOME`，也可以填写已有登录的配置目录。Windows 支持使用官方 Codex 桌面版自带的命令行工具。
+
+总览的 Codex 卡片和账号详情会显示可用重置券数量，以及 OpenAI 返回的逐券到期时间。TokenBar 在刷新额度时后台查询库存。点击对应券的**使用**按钮，核对账号后确认即可兑换。查询和兑换复用所选账号的 ChatGPT 登录，并使用 [Codex 官方客户端的重置券接口](https://github.com/openai/codex/blob/1af47ac084303b7bab777394e8b704a21f8e73c1/codex-rs/backend-client/src/client/rate_limit_resets.rs)。
+
+**托盘小面板（桌面端）**：点击托盘图标可以查看各账户的额度和重置倒计时。服务返回登录邮箱时，卡片会在名称下方显示邮箱。拖动卡片右侧的手柄即可调整顺序，排序会保存在本机。面板失去焦点后自动收起，点击**打开 TokenBar**可回到主窗口。连续点击托盘图标会依次切换：小面板 → 完整窗口 → 隐藏，所以快速双击会直接打开完整窗口。Windows 11 上小面板带圆角。macOS 上可在 设置 → 桌面 中开启**仅在菜单栏显示**来隐藏 Dock 图标（此时 ⌘Q 不可用，请从托盘菜单退出）。
 
 **使用历史**：在账户页选择 24 小时、7 天或 30 天。每根柱子是一个时间段内新增的用量，按分项堆叠：
 

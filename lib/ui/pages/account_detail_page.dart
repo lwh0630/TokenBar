@@ -6,6 +6,7 @@ import '../../app/design/glass.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/app_controller.dart';
 import '../format.dart';
+import '../widgets/codex_reset_credits_card.dart';
 import '../widgets/history_chart.dart';
 import '../widgets/provider_badge.dart';
 import '../widgets/quota_ring.dart';
@@ -111,6 +112,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
       );
     }
     final provider = ProviderRegistry.instance.byId(s.providerId);
+    final resetCredits = c.codexResetCreditsFor(s.accountId);
 
     return Scaffold(
       appBar: AppBar(
@@ -187,6 +189,12 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                         ),
                       ),
                     const SizedBox(height: 14),
+                    if (resetCredits != null)
+                      CodexResetCreditsCard(
+                        controller: resetCredits,
+                        accountLabel: s.accountLabel ?? provider?.displayName ?? s.providerId,
+                        now: now,
+                      ),
                     GlassCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),

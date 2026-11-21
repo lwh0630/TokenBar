@@ -806,6 +806,102 @@ class AppLocalizationsZh extends AppLocalizations {
   String get configDirField => '配置目录（可选）';
 
   @override
+  String get codexSignIn => '登录 ChatGPT 账号';
+
+  @override
+  String get codexSignInHint => '直接登录可添加新的 Codex 账号。已有 Codex 登录也可通过下方的配置目录导入。';
+
+  @override
+  String get codexSignInPreparing => '正在准备 Codex 登录…';
+
+  @override
+  String get codexSignInWaiting => '请在浏览器选择要添加的 ChatGPT 账号。若浏览器已登录主号，可以复制链接，用另一个浏览器资料或无痕窗口打开。';
+
+  @override
+  String get codexSignInBrowserFailed => '未能打开浏览器。请复制链接后手动打开。';
+
+  @override
+  String get codexSignInCopyLink => '复制登录链接';
+
+  @override
+  String get codexSignInLinkCopied => '已复制链接';
+
+  @override
+  String get codexSignInTimedOut => '登录链接已超时。关闭此窗口后重新发起登录。';
+
+  @override
+  String get codexSignInFailed => 'Codex 登录未完成。请在浏览器确认所选账号后重试。';
+
+  @override
+  String get codexCliMissing => '找不到 Codex 程序。请安装或更新官方 Codex 桌面版或命令行工具。';
+
+  @override
+  String get codexResetCredits => 'Codex 重置券';
+
+  @override
+  String codexResetCount(int count) {
+    return '可用 $count 张';
+  }
+
+  @override
+  String codexResetExpiry(String date) {
+    return '$date 到期';
+  }
+
+  @override
+  String get codexResetNoExpiry => '无到期时间';
+
+  @override
+  String get codexResetExpired => '已过期';
+
+  @override
+  String get codexResetDetailsMissing => 'OpenAI 暂未返回全部重置券的详情。';
+
+  @override
+  String get codexResetUnavailable => '暂时无法使用重置券，请刷新额度后重试。';
+
+  @override
+  String get codexResetAccountChanged => '账号登录已变化。请刷新额度并核对账号后再使用。';
+
+  @override
+  String get codexResetSignedOut => '此功能需要登录 ChatGPT 账号。';
+
+  @override
+  String get codexResetCreditUnavailable => '这张重置券已不可用。';
+
+  @override
+  String get codexResetUsageSettings => '打开 ChatGPT 用量设置';
+
+  @override
+  String get codexResetBrowserFailed => '未能打开浏览器。可在 ChatGPT 设置中打开用量页面。';
+
+  @override
+  String get codexResetUse => '使用';
+
+  @override
+  String get codexResetUseTitle => '使用这张重置券？';
+
+  @override
+  String codexResetUseBody(String account) {
+    return '为 $account 使用 1 张重置券。符合条件的 Codex 额度将恢复。';
+  }
+
+  @override
+  String get codexResetUsing => '正在使用重置券…';
+
+  @override
+  String get codexResetUsed => '重置券已使用。';
+
+  @override
+  String get codexResetNothingToReset => '当前额度无需重置，重置券仍可用。';
+
+  @override
+  String get codexResetUncertain => '暂时无法确认重置结果。你可以重试原来的请求。';
+
+  @override
+  String get codexResetRetry => '重试使用同一张券';
+
+  @override
   String get homeDirHelper => '留空使用默认目录；多账户时为每个账户指定不同目录';
 
   @override

@@ -7,6 +7,7 @@ import '../../models/usage_snapshot.dart';
 import '../../platform/platform.dart' as platform;
 import '../../util/json_utils.dart';
 import '../provider.dart';
+import 'codex_app_server.dart';
 import 'codex_credentials.dart';
 import 'codex_model_usage.dart';
 import 'codex_usage_parser.dart';
@@ -43,8 +44,7 @@ class CodexProvider extends UsageProvider {
     if (!platform.localAccessSupported) return false;
     final home = resolveCodexHome(account.homeDir);
     if (home == null) return false;
-    final text = await platform.readTextFile(platform.joinPath(home, 'auth.json'));
-    return text != null && CodexCredentials.parse(text) != null;
+    return await readCodexCredentials(home) != null;
   }
 
   @override
@@ -172,23 +172,9 @@ class CodexProvider extends UsageProvider {
     CodexCredentials creds,
     FetchContext ctx,
   ) async {
-    final exe = await platform.findExecutable('codex');
-    if (exe == null) return null;
     platform.JsonRpcSession? session;
     try {
-      session = await platform.startJsonRpcProcess(
-        exe,
-        const ['-s', 'read-only', '-a', 'never', 'app-server'],
-        environment: {if (account.homeDir != null) 'CODEX_HOME': home},
-      );
-      await session.request(
-        'initialize',
-        params: {
-          'clientInfo': {'name': 'tokenbar', 'version': '0.1.0'},
-        },
-        timeout: const Duration(seconds: 15),
-      );
-      session.notify('initialized');
+      session = await openCodexAppServer(home);
       Map<String, Object?>? accountInfo;
       try {
         accountInfo = asMap(

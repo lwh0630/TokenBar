@@ -51,6 +51,33 @@ void main() {
     });
   });
 
+  group('SystemProxyConfig.parseWindows', () {
+    test('uses the current user proxy for both web schemes', () {
+      final config = SystemProxyConfig.parseWindows({
+        'proxy': '127.0.0.1:7890',
+        'bypass': '*.Example.test;<local>;192.168.0.5',
+      })!;
+      expect(systemProxyFindProxy(Uri.https('chatgpt.com'), config), 'PROXY 127.0.0.1:7890');
+      expect(systemProxyFindProxy(Uri.https('sub.example.test'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('workstation'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('192.168.0.5'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('127.0.0.1:5000'), config), 'DIRECT');
+      expect(systemProxyFindProxy(Uri.http('[::1]:5000'), config), 'DIRECT');
+    });
+
+    test('handles explicit schemes and ignores unsupported proxy types', () {
+      final config = SystemProxyConfig.parseWindows({
+        'proxy': 'HTTP=proxy.local;https=http://[::1]:8081;SOCKS=proxy.local:1080',
+      })!;
+      expect(systemProxyFindProxy(Uri.http('example.com'), config), 'PROXY proxy.local:80');
+      expect(systemProxyFindProxy(Uri.https('chatgpt.com'), config), 'PROXY [::1]:8081');
+      final httpOnly = SystemProxyConfig.parseWindows({'proxy': 'http=proxy.local:7890'})!;
+      expect(systemProxyFindProxy(Uri.https('chatgpt.com'), httpOnly), 'DIRECT');
+      expect(SystemProxyConfig.parseWindows({'proxy': 'socks=proxy.local:1080'}), isNull);
+      expect(SystemProxyConfig.parseWindows({'proxy': ''}), isNull);
+    });
+  });
+
   group('systemProxyFindProxy', () {
     final config = SystemProxyConfig(
       httpProxy: '10.0.0.2:7890',
