@@ -219,6 +219,11 @@ class DesktopIntegration with TrayListener, WindowListener {
     try {
       trayManager.addListener(this);
       await _setIcon(null, null, false);
+      // macOS 26 hands out the menu-bar slot by the item's width at creation and
+      // never re-flows it. Without a title the item is ~36 pt wide, and when the
+      // first snapshot adds "49%" it grows past the screen edge and is dropped
+      // entirely (issue #12). So reserve the final width from the start.
+      if (Platform.isMacOS) await trayManager.setTitle(_macNoDataTitle);
       await trayManager.setToolTip('TokenBar');
       await _setMenu(l10n, const []);
       _trayReady = true;
@@ -291,8 +296,9 @@ class DesktopIntegration with TrayListener, WindowListener {
     if (Platform.isWindows && tooltip.length > 127) tooltip = '${tooltip.substring(0, 126)}…';
     await trayManager.setToolTip(tooltip);
     if (Platform.isMacOS) {
+      // Never an empty title: shrinking back would let the slot be reassigned.
       await trayManager.setTitle(
-        focus == null ? '' : formatPercent(focus.tightestWindow!.remainingPercent),
+        focus == null ? _macNoDataTitle : formatPercent(focus.tightestWindow!.remainingPercent),
       );
     }
     await _setMenu(l10n, lines, snapshots);
@@ -346,6 +352,10 @@ class DesktopIntegration with TrayListener, WindowListener {
   }
 
   static const _trayChannel = MethodChannel('tray_manager');
+
+  /// macOS menu-bar text while there is no quota to show; it keeps the status
+  /// item as wide as it will be with a real percentage (see [init]).
+  static const _macNoDataTitle = '--%';
 
   /// Native -> Dart: "another launch wants the window" (see `windows/runner`
   /// and `macos/Runner/AppDelegate.swift`).
