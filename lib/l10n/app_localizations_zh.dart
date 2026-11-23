@@ -268,6 +268,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noData => '无数据';
 
   @override
+  String get providerAccountLink => '账户';
+
+  @override
+  String get providerProjectLink => '项目';
+
+  @override
+  String openProviderAccountOverview(String provider) {
+    return '打开 $provider 账户总览';
+  }
+
+  @override
+  String openProviderWebsite(String provider) {
+    return '打开 $provider 官方页面';
+  }
+
+  @override
+  String get openProviderWebsiteFailed => '无法打开网页，请重试。';
+
+  @override
   String staleDataNotice(String error) {
     return '显示的是上次数据：$error';
   }

@@ -95,6 +95,9 @@ class DashboardPage extends StatelessWidget {
                                 index: i,
                                 child: AccountCard(
                                   snapshot: s,
+                                  account: c.settings.syncMode.fetchesLocally
+                                      ? c.account(s.accountId)
+                                      : null,
                                   now: now,
                                   resetCredits: c.codexResetCreditsFor(s.accountId),
                                   onTap: () => Navigator.of(context).push(

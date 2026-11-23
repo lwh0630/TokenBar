@@ -138,6 +138,17 @@
     "placeholders": { "percent": { "type": "int" } }
   },
   "noData": "无数据",
+  "providerAccountLink": "账户",
+  "providerProjectLink": "项目",
+  "openProviderAccountOverview": "打开 {provider} 账户总览",
+  "@openProviderAccountOverview": {
+    "placeholders": { "provider": { "type": "String" } }
+  },
+  "openProviderWebsite": "打开 {provider} 官方页面",
+  "@openProviderWebsite": {
+    "placeholders": { "provider": { "type": "String" } }
+  },
+  "openProviderWebsiteFailed": "无法打开网页，请重试。",
   "staleDataNotice": "显示的是上次数据：{error}",
   "@staleDataNotice": {
     "placeholders": { "error": { "type": "String" } }

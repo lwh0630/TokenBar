@@ -270,7 +270,7 @@ TokenBar uses the current user's manual HTTP proxy settings on Windows, macOS an
 
 1. Launch TokenBar. On desktop it detects the services you are already signed in to (Codex, Claude, Cursor) and adds them.
 2. Open **Accounts → Add account** to add a service. Select the service and follow its sign-in or configuration instructions. You can add several accounts for the same service.
-3. The dashboard refreshes every few minutes (configurable). Tap an account for per-window detail and history.
+3. The dashboard refreshes every few minutes (configurable). Tap an account for per-window detail and history. The **Account** button at the top right of a card opens the provider’s account overview, usage dashboard, or console in your browser. The **Project** button opens the official project for self-hosted services without a shared console.
 
 **Codex (desktop).** Choose **Accounts → Add account → Codex → Sign in with ChatGPT**. Complete sign-in in your browser and TokenBar adds the account and fetches its usage. Each sign-in uses its own `CODEX_HOME`. You can also enter the config directory of an existing login. On Windows, TokenBar can use the CLI included with the official Codex desktop app.
 
