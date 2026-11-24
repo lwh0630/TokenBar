@@ -286,6 +286,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noData => 'No data';
 
   @override
+  String get providerAccountLink => 'Account';
+
+  @override
+  String get providerProjectLink => 'Project';
+
+  @override
+  String openProviderAccountOverview(String provider) {
+    return 'Open $provider account overview';
+  }
+
+  @override
+  String openProviderWebsite(String provider) {
+    return 'Open $provider website';
+  }
+
+  @override
+  String get openProviderWebsiteFailed => 'Could not open the webpage. Try again.';
+
+  @override
   String staleDataNotice(String error) {
     return 'Showing last data: $error';
   }

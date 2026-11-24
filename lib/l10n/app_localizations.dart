@@ -525,6 +525,36 @@ abstract class AppLocalizations {
   /// **'无数据'**
   String get noData;
 
+  /// No description provided for @providerAccountLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户'**
+  String get providerAccountLink;
+
+  /// No description provided for @providerProjectLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'项目'**
+  String get providerProjectLink;
+
+  /// No description provided for @openProviderAccountOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 {provider} 账户总览'**
+  String openProviderAccountOverview(String provider);
+
+  /// No description provided for @openProviderWebsite.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 {provider} 官方页面'**
+  String openProviderWebsite(String provider);
+
+  /// No description provided for @openProviderWebsiteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开网页，请重试。'**
+  String get openProviderWebsiteFailed;
+
   /// No description provided for @staleDataNotice.
   ///
   /// In zh, this message translates to:
